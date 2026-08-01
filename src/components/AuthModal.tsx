@@ -5,7 +5,7 @@ import { ArrowLeftIcon, CheckIcon, LoaderIcon, LogOutIcon, MailIcon, XIcon } fro
 interface AuthModalProps {
   open: boolean;
   onClose: () => void;
-  onSignedIn: (email: string) => void;
+  onSendMagicLink: (email: string) => Promise<{ error: string | null }>;
   signedInEmail?: string | null;
   onSignOut?: () => void;
 }
@@ -17,7 +17,7 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function AuthModal({
   open,
   onClose,
-  onSignedIn,
+  onSendMagicLink,
   signedInEmail,
   onSignOut
 }: AuthModalProps) {
@@ -41,7 +41,7 @@ export function AuthModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailPattern.test(email.trim())) {
       setError('Enter a valid email address.');
@@ -49,8 +49,13 @@ export function AuthModal({
     }
     setError(null);
     setStage('sending');
-    // Placeholder for Supabase signInWithOtp — wired up later.
-    setTimeout(() => setStage('sent'), 900);
+    const { error: sendError } = await onSendMagicLink(email.trim());
+    if (sendError) {
+      setError(sendError);
+      setStage('email');
+      return;
+    }
+    setStage('sent');
   };
 
   return (
@@ -120,20 +125,13 @@ export function AuthModal({
                   Check your inbox
                 </h2>
                 <p className="mt-1.5 text-sm leading-relaxed text-muted">
-                  We sent a magic link to <span className="font-medium text-ink">{email}</span>. Tap
-                  it on this device and you&rsquo;ll be signed straight in.
+                  We sent a magic link to <span className="font-medium text-ink">{email}</span>. Open
+                  it on this device and you&rsquo;ll be signed straight in — this closes on its own.
                 </p>
                 <button
               type="button"
-              onClick={() => onSignedIn(email.trim())}
-              className="mt-5 w-full rounded-control bg-primary py-3 text-sm font-semibold text-white transition-transform active:scale-[0.99]">
-              
-                  I clicked the link
-                </button>
-                <button
-              type="button"
               onClick={() => setStage('email')}
-              className="mx-auto mt-3 flex items-center gap-1.5 text-xs font-medium text-subtle hover:text-ink">
+              className="mx-auto mt-5 flex items-center gap-1.5 text-xs font-medium text-subtle hover:text-ink">
               
                   <ArrowLeftIcon className="h-3.5 w-3.5" aria-hidden="true" />
                   Use a different email

@@ -121,28 +121,40 @@ export function EntrySheet({ open, onClose, transaction = null }: EntrySheetProp
     setRawAmount((value) => sanitizeAmountInput(value + key));
   };
 
-  const save = () => {
+  const save = async () => {
     if (!canSave || !categoryId) return;
     const payload = { amount, categoryId, description: description.trim(), date };
-    if (transaction) updateTransaction(transaction.id, payload);else
-    addTransaction(payload);
-    onClose();
+    try {
+      if (transaction) await updateTransaction(transaction.id, payload);else
+      await addTransaction(payload);
+      onClose();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const remove = () => {
+  const remove = async () => {
     if (!transaction) return;
-    deleteTransaction(transaction.id);
-    onClose();
+    try {
+      await deleteTransaction(transaction.id);
+      onClose();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const quickAdd = () => {
+  const quickAdd = async () => {
     if (!newName.trim()) return;
-    const created = addCategory(newName, parent);
-    setCategoryId(created.id);
-    setNewName('');
-    setCreating(false);
-    setMode('text');
-    setTimeout(() => descriptionRef.current?.focus(), 50);
+    try {
+      const created = await addCategory(newName, parent);
+      setCategoryId(created.id);
+      setNewName('');
+      setCreating(false);
+      setMode('text');
+      setTimeout(() => descriptionRef.current?.focus(), 50);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const dateLabel =

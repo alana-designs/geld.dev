@@ -34,16 +34,20 @@ export function CategoryEditorSheet({
   const locked = category ? categoryHasEntries(category.id) : false;
   const canSave = name.trim().length > 0;
 
-  const save = () => {
+  const save = async () => {
     if (!canSave) return;
     const parsed = Number(goal);
     const monthlyGoal = Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-    if (category) {
-      updateCategory(category.id, { name: name.trim(), parent, monthlyGoal });
-    } else {
-      addCategory(name.trim(), parent, monthlyGoal);
+    try {
+      if (category) {
+        await updateCategory(category.id, { name: name.trim(), parent, monthlyGoal });
+      } else {
+        await addCategory(name.trim(), parent, monthlyGoal);
+      }
+      onClose();
+    } catch (err) {
+      console.error(err);
     }
-    onClose();
   };
 
   return (
@@ -155,12 +159,16 @@ export function CategoryEditorSheet({
             <div className="flex items-center gap-2 border-t border-line pt-3">
                   <button
                 type="button"
-                onClick={() => {
-                  updateCategory(category.id, { archived: !category.archived });
-                  onClose();
+                onClick={async () => {
+                  try {
+                    await updateCategory(category.id, { archived: !category.archived });
+                    onClose();
+                  } catch (err) {
+                    console.error(err);
+                  }
                 }}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-control border border-line py-2.5 text-xs font-medium text-muted transition-colors hover:text-ink">
-                
+
                     {category.archived ?
                 <>
                         <ArchiveRestoreIcon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -176,9 +184,13 @@ export function CategoryEditorSheet({
                   <button
                 type="button"
                 disabled={locked}
-                onClick={() => {
-                  deleteCategory(category.id);
-                  onClose();
+                onClick={async () => {
+                  try {
+                    await deleteCategory(category.id);
+                    onClose();
+                  } catch (err) {
+                    console.error(err);
+                  }
                 }}
                 title={locked ? 'This category has entries — archive it instead' : undefined}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-control border border-line py-2.5 text-xs font-medium text-alert transition-colors hover:bg-alert/5 disabled:opacity-40 disabled:hover:bg-transparent">

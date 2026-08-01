@@ -45,9 +45,8 @@ Based on your current spreadsheet (which already tracks two people — Alana and
 
 Goal: get to an accurate **take-home pay** number, with pre-tax and post-tax deductions itemized, so the budget is built on real available cash, not gross salary.
 
-- **Upload a paystub** (image or PDF) — parsed to pre-fill fields for the user to review and correct (never auto-saved without user confirmation)
-- **Manual entry** as a fully supported alternative/fallback — same fields, typed in by hand
-- Fields to capture per paystub/income source:
+- **Manual entry only for v1**: same fields a paystub would have, typed in by hand. No paystub upload or OCR/auto-parse in v1 — deferred to a fast-follow once core flows are validated.
+- Fields to capture per income source:
   - Gross pay (per pay period + pay frequency: weekly/biweekly/semi-monthly/monthly)
   - Pre-tax deductions (401k/retirement, HSA/FSA, pre-tax health premiums, etc.) — user-labeled, itemized
   - Taxes withheld (federal, state, local, FICA) — itemized, informational (not user-editable categories, just line items)
@@ -55,7 +54,7 @@ Goal: get to an accurate **take-home pay** number, with pre-tax and post-tax ded
   - Net/take-home pay (calculated, shown prominently, editable if the user wants to override)
 - Support **multiple income sources** per user (e.g. two jobs, a spouse's separate paycheck is handled via that spouse's own household tab)
 - Recurring income: user sets pay frequency so take-home flows into a monthly income figure used for budget totals
-- Users can update/re-upload a paystub any time income changes (raise, new job, benefits change)
+- Users can update income any time it changes (raise, new job, benefits change)
 
 ### 5.2 Categories
 
@@ -91,7 +90,7 @@ Goal: get to an accurate **take-home pay** number, with pre-tax and post-tax ded
 - Charts should be **interactive**: click/hover a category to filter the entry list to just that category, toggle between parent categories, switch between daily/weekly/monthly time grouping
 - Visual style: simple and clean — favor a small number of chart types done well (e.g. stacked bar for category mix, line for trend, donut for allocation) over a dashboard crowded with widgets
 - Include a "goal vs. actual" indicator per category (like the Goal/Actual Totals rows in your current spreadsheet) — over/under budget should be visually obvious at a glance
-- Household aggregate view (if applicable) uses the same visual language, rolled up across members
+- Household aggregate view (if applicable) uses the same visual language, rolled up across members, and includes combined take-home income (e.g. whole-household savings rate) alongside combined spending
 
 ## 6. Data Model (high level, for design/dev reference)
 
@@ -119,11 +118,12 @@ Household
 
 ## 7. Key User Flows
 
-1. **First-time setup**: Sign up → upload or manually enter paystub → review calculated take-home pay → set up starter categories (accept suggested set or customize) → optionally set monthly goals per category → land on empty-state dashboard with a clear "Add your first entry" CTA
+1. **First-time setup**: Sign up → manually enter income → review calculated take-home pay → set up starter categories (accept suggested set or customize) → optionally set monthly goals per category → land on empty-state dashboard with a clear "Add your first entry" CTA
 2. **Daily entry**: Open app → tap "Add" → type amount → select Needs/Wants/Savings → select subcategory → type a short description of what it was → (optional) adjust date → save → entry appears immediately in today's list as *description → category label → amount*, and totals/charts update
 3. **Reviewing spending**: Open dashboard → default view is current month → toggle to a specific parent category or subcategory → see trend + goal-vs-actual → drill into daily entries behind any data point
 4. **Inviting a household member**: Settings → "Invite to household" → enter email → member receives invite, signs up, completes their own income/category setup → their tab appears alongside the inviter's, with read-only visibility both ways
-5. **Updating income**: Settings → Income → re-upload paystub or edit manually → take-home recalculates → historical months are unaffected (income changes apply going forward)
+5. **Updating income**: Settings → Income → edit manually → take-home recalculates → historical months are unaffected (income changes apply going forward)
+6. **New month rollover**: on entering a new month, each category's goal carries forward from the prior month automatically; the user only edits categories whose goal actually changed
 
 ## 8. Non-Functional Requirements
 
@@ -133,12 +133,12 @@ Household
 - Data is manually entered and should be easy to export (CSV export of raw transactions is reasonable to include, since it's the user's own typed-in data, not an import feature)
 - Fast perceived performance on the "add entry" flow specifically — this is the highest-frequency action in the app
 
-## 9. Open Questions (for you to resolve before/while designing)
+## 9. Resolved Decisions
 
-- Should paystub upload attempt OCR/auto-parse, or always require the user to manually confirm/type every field even after upload (leaning toward: parse to pre-fill, but require explicit confirm — never silently trust it)
-- Should monthly category goals roll over automatically each month, or reset to zero and require re-confirmation? (Your spreadsheet re-enters goals each month via new tabs — worth deciding if that's a feature or a chore to remove)
-- Should the household aggregate view show combined take-home income too, or just combined spending?
-- Any desired currency/locale support beyond USD, or is this single-currency for now?
+- **Paystub upload**: manual entry only for v1. No OCR/auto-parse — ship the manual income form (already prototyped) and revisit OCR as a fast-follow once core flows are validated.
+- **Monthly category goals**: roll over automatically. A new month inherits the previous month's goal per category; the user edits only when something changes, rather than re-entering every month.
+- **Household aggregate view**: shows combined spending **and** combined take-home income (e.g. whole-household savings rate), not spending alone. Per-member income remains visible only within that member's own tab/data, but the Household roll-up sums it.
+- **Currency/locale**: USD only for v1. No multi-currency or locale switching.
 
 ## 10. Success Metrics
 

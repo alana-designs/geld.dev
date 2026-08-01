@@ -9,9 +9,7 @@ interface DeductionEditorProps {
   hint: string;
   rows: DeductionDraft[];
   savingsCategories: Category[];
-  reviewIds: string[];
   onChange: (rows: DeductionDraft[]) => void;
-  onConfirm: (id: string) => void;
 }
 
 export function DeductionEditor({
@@ -19,13 +17,10 @@ export function DeductionEditor({
   hint,
   rows,
   savingsCategories,
-  reviewIds,
-  onChange,
-  onConfirm
+  onChange
 }: DeductionEditorProps) {
   const patch = (id: string, next: Partial<DeductionDraft>) => {
     onChange(rows.map((row) => row.id === id ? { ...row, ...next } : row));
-    onConfirm(id);
   };
 
   const add = () =>
@@ -43,13 +38,10 @@ export function DeductionEditor({
 
       <ul className="divide-y divide-line">
         {rows.map((row) => {
-          const needsReview = reviewIds.includes(row.id);
           const retirement = row.tag === 'retirement';
           return (
-            <li
-              key={row.id}
-              className={`px-3 py-2.5 ${needsReview ? 'bg-alert/[0.04]' : ''}`}>
-              
+            <li key={row.id} className="px-3 py-2.5">
+
               <div className="flex items-center gap-2">
                 <input
                   value={row.label}
@@ -115,16 +107,6 @@ export function DeductionEditor({
                       </option>
                   )}
                   </select>
-                }
-
-                {needsReview &&
-                <button
-                  type="button"
-                  onClick={() => onConfirm(row.id)}
-                  className="rounded-full border border-alert/25 bg-alert/10 px-2.5 py-1 text-[11px] font-medium text-alert">
-                  
-                    Tap to confirm
-                  </button>
                 }
               </div>
             </li>);

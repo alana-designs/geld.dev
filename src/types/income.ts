@@ -47,6 +47,5 @@ export interface IncomeSource {
   postTax: Deduction[];
   /** Set when the user overrides the calculated net. */
   netOverride: number | null;
-  origin: 'manual' | 'paystub';
   updatedAt: string;
 }

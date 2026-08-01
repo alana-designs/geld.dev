@@ -81,9 +81,9 @@ export function Budget() {
       <p className="px-1 text-xs leading-relaxed text-muted">
         {isHousehold ?
         `Everyone's categories and goals, combined for ${monthLabel(selectedMonth)}. Each person edits their own.` :
-        canEdit ?
+        canEdit || !viewMember ?
         `These categories are what you'll see when adding an expense. Goals carry over month to month; the amounts below are what you actually spent in ${monthLabel(selectedMonth)}.` :
-        `${viewMember?.name}'s categories and goals for ${monthLabel(selectedMonth)}. You can look, but only they can change these.`}
+        `${viewMember.name}'s categories and goals for ${monthLabel(selectedMonth)}. You can look, but only they can change these.`}
       </p>
 
       {PARENT_CATEGORIES.map((parent) => {

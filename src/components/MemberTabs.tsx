@@ -1,8 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { EyeIcon, UsersIcon } from 'lucide-react';
-import { useBudget } from '../contexts/BudgetContext';
-import { HOUSEHOLD_VIEW } from '../data/household';
+import { HOUSEHOLD_VIEW, useBudget } from '../contexts/BudgetContext';
 
 /**
  * One control, on every screen: whose ledger am I looking at?

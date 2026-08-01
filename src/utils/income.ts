@@ -87,6 +87,7 @@ today = new Date())
         fallback;
         entries.push({
           id: `auto-${source.id}-${deduction.id}-${date}`,
+          memberId: source.memberId,
           amount: deduction.amount,
           categoryId,
           description: `${deduction.label} — ${source.name}`,

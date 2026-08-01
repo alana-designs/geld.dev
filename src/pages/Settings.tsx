@@ -3,7 +3,6 @@ import { format, parseISO } from 'date-fns';
 import {
   ChevronRightIcon,
   EyeIcon,
-  FileTextIcon,
   KeyboardIcon,
   LogOutIcon,
   MailIcon,
@@ -37,7 +36,7 @@ export function Settings({ onSignIn }: SettingsProps) {
   const [invite, setInvite] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const sendInvite = (e: React.FormEvent) => {
+  const sendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     const email = invite.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -48,9 +47,13 @@ export function Settings({ onSignIn }: SettingsProps) {
       setError('That person is already in your household.');
       return;
     }
-    inviteMember(email);
-    setInvite('');
-    setError(null);
+    try {
+      await inviteMember(email);
+      setInvite('');
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not send the invite — try again.');
+    }
   };
 
   const autoSavings = incomeSources.reduce(
@@ -98,11 +101,7 @@ export function Settings({ onSignIn }: SettingsProps) {
                   className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-canvas">
                   
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-canvas text-muted">
-                    {source.origin === 'paystub' ?
-                    <FileTextIcon className="h-4 w-4" aria-hidden="true" /> :
-
                     <KeyboardIcon className="h-4 w-4" aria-hidden="true" />
-                    }
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-medium tracking-[-0.01em] text-ink">
@@ -142,11 +141,6 @@ export function Settings({ onSignIn }: SettingsProps) {
           Add income source
         </button>
       </section>
-
-      <p className="px-1 text-[11px] leading-relaxed text-subtle">
-        Uploading a paystub is a one-time document you hand over, not a bank connection. Every
-        parsed field waits for your confirmation before it saves.
-      </p>
 
       <section className="overflow-hidden rounded-card border border-line bg-surface">
         <div className="border-b border-line px-4 py-2.5">

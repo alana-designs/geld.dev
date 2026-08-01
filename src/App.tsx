@@ -12,23 +12,30 @@ import { Budget } from './pages/Budget';
 import { Settings } from './pages/Settings';
 
 function Shell() {
-  const { user, signIn, signOut, setupComplete, canEdit, setViewId } = useBudget();
+  const { user, loading, sendMagicLink, signOut, setupComplete, canEdit, selfId, setViewId } =
+  useBudget();
   const [addOpen, setAddOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
 
   // First run: claim the ledger with an email before anything else.
   useEffect(() => {
-    if (!user) {
+    if (!loading && !user) {
       const t = setTimeout(() => setAuthOpen(true), 500);
       return () => clearTimeout(t);
     }
+  }, [user, loading]);
+
+  // Real sign-in happens asynchronously (the user opens the emailed link,
+  // maybe on another tab) — close the modal reactively once a session lands.
+  useEffect(() => {
+    if (user) setAuthOpen(false);
   }, [user]);
 
-  const needsSetup = Boolean(user) && !setupComplete;
+  const needsSetup = Boolean(user) && !loading && !setupComplete;
 
   // You can only ever add entries to your own ledger.
   const openAdd = () => {
-    if (!canEdit) setViewId('me');
+    if (!canEdit && selfId) setViewId(selfId);
     setAddOpen(true);
   };
 
@@ -65,11 +72,8 @@ function Shell() {
         onClose={() => setAuthOpen(false)}
         signedInEmail={user?.email ?? null}
         onSignOut={signOut}
-        onSignedIn={(email) => {
-          signIn(email);
-          setAuthOpen(false);
-        }} />
-      
+        onSendMagicLink={sendMagicLink} />
+
 
       {needsSetup && <OnboardingSetup />}
     </div>);

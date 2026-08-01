@@ -1,15 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-  FileTextIcon,
-  KeyboardIcon,
-  LoaderIcon,
-  PlusIcon,
-  ScanLineIcon,
-  Trash2Icon,
-  UploadIcon,
-  XIcon } from
-'lucide-react';
+import { PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useBudget } from '../../contexts/BudgetContext';
 import {
   DeductionDraft,
@@ -17,7 +8,6 @@ import {
   PayFrequency,
   TaxDraft } from
 '../../types/income';
-import { sampleParsedPaystub } from '../../data/income';
 import { FREQUENCIES, frequencyMeta, sumAmounts } from '../../utils/income';
 import { formatCurrency, parseAmount, sanitizeAmountInput, toAmountInput } from '../../utils/format';
 import { DeductionEditor } from './DeductionEditor';
@@ -28,16 +18,11 @@ interface IncomeSourceSheetProps {
   onClose: () => void;
 }
 
-type Stage = 'choose' | 'scanning' | 'form';
-
 const uid = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
 
 export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetProps) {
   const { categories, saveIncomeSource, deleteIncomeSource } = useBudget();
-  const fileRef = useRef<HTMLInputElement>(null);
 
-  const [stage, setStage] = useState<Stage>('choose');
-  const [fileName, setFileName] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [gross, setGross] = useState('');
   const [frequency, setFrequency] = useState<PayFrequency>('biweekly');
@@ -45,7 +30,6 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
   const [taxes, setTaxes] = useState<TaxDraft[]>([]);
   const [postTax, setPostTax] = useState<DeductionDraft[]>([]);
   const [override, setOverride] = useState('');
-  const [review, setReview] = useState<string[]>([]);
 
   const savingsCategories = useMemo(
     () => categories.filter((c) => c.parent === 'Savings' && !c.archived),
@@ -54,10 +38,7 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
 
   useEffect(() => {
     if (!open) return;
-    setFileName(null);
-    setReview([]);
     if (source) {
-      setStage('form');
       setName(source.name);
       setGross(toAmountInput(source.grossPay));
       setFrequency(source.frequency);
@@ -70,12 +51,23 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
       );
       setOverride(source.netOverride != null ? toAmountInput(source.netOverride) : '');
     } else {
-      setStage('choose');
-      setName('');
+      setName('My paycheck');
       setGross('');
       setFrequency('biweekly');
-      setPreTax([]);
-      setTaxes([]);
+      setPreTax([
+      {
+        id: uid('pt'),
+        label: '401(k) contribution',
+        amount: '',
+        tag: 'retirement',
+        categoryId: savingsCategories[0]?.id
+      }]
+      );
+      setTaxes([
+      { id: uid('tx'), label: 'Federal income tax', amount: '' },
+      { id: uid('tx'), label: 'State income tax', amount: '' },
+      { id: uid('tx'), label: 'FICA', amount: '' }]
+      );
       setPostTax([]);
       setOverride('');
     }
@@ -86,57 +78,6 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
     if (open) window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
-
-  const startManual = () => {
-    setStage('form');
-    setName('My paycheck');
-    setPreTax([{ id: uid('pt'), label: '401(k) contribution', amount: '', tag: 'retirement', categoryId: savingsCategories[0]?.id }]);
-    setTaxes([
-    { id: uid('tx'), label: 'Federal income tax', amount: '' },
-    { id: uid('tx'), label: 'State income tax', amount: '' },
-    { id: uid('tx'), label: 'FICA', amount: '' }]
-    );
-    setPostTax([]);
-  };
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
-    setStage('scanning');
-    // Stand-in for OCR. Nothing is saved until the user confirms each line.
-    setTimeout(() => {
-      const pre = sampleParsedPaystub.preTax.map((d) => ({
-        id: uid('pt'),
-        label: d.label,
-        amount: toAmountInput(d.amount),
-        tag: d.tag,
-        categoryId: d.tag === 'retirement' ? savingsCategories[0]?.id : undefined
-      }));
-      const tax = sampleParsedPaystub.taxes.map((t) => ({
-        id: uid('tx'),
-        label: t.label,
-        amount: toAmountInput(t.amount)
-      }));
-      const post = sampleParsedPaystub.postTax.map((d) => ({
-        id: uid('po'),
-        label: d.label,
-        amount: toAmountInput(d.amount),
-        tag: d.tag,
-        categoryId: d.tag === 'retirement' ? savingsCategories[0]?.id : undefined
-      }));
-      setName(sampleParsedPaystub.name);
-      setGross(toAmountInput(sampleParsedPaystub.grossPay));
-      setFrequency(sampleParsedPaystub.frequency);
-      setPreTax(pre);
-      setTaxes(tax);
-      setPostTax(post);
-      setReview(['gross', ...pre.map((r) => r.id), ...tax.map((r) => r.id), ...post.map((r) => r.id)]);
-      setStage('form');
-    }, 1700);
-  };
-
-  const confirmField = (id: string) => setReview((prev) => prev.filter((f) => f !== id));
 
   const grossValue = parseAmount(gross);
   const preTotal = sumAmounts(preTax.map((d) => ({ amount: parseAmount(d.amount) })));
@@ -149,11 +90,12 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
   sumAmounts(preTax.filter((d) => d.tag === 'retirement').map((d) => ({ amount: parseAmount(d.amount) }))) +
   sumAmounts(postTax.filter((d) => d.tag === 'retirement').map((d) => ({ amount: parseAmount(d.amount) })));
 
-  const canSave = name.trim().length > 0 && grossValue > 0 && review.length === 0;
+  const canSave = name.trim().length > 0 && grossValue > 0;
 
-  const save = () => {
+  const save = async () => {
     if (!canSave) return;
-    saveIncomeSource({
+    try {
+      await saveIncomeSource({
       id: source?.id ?? uid('income'),
       memberId: source?.memberId ?? 'me',
       name: name.trim(),
@@ -181,10 +123,12 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
         categoryId: d.tag === 'retirement' ? d.categoryId ?? savingsCategories[0]?.id : undefined
       })),
       netOverride: override.trim() ? parseAmount(override) : null,
-      origin: fileName ? 'paystub' : source?.origin ?? 'manual',
       updatedAt: new Date().toISOString()
-    });
-    onClose();
+      });
+      onClose();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -219,9 +163,13 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
                 {source &&
               <button
                 type="button"
-                onClick={() => {
-                  deleteIncomeSource(source.id);
-                  onClose();
+                onClick={async () => {
+                  try {
+                    await deleteIncomeSource(source.id);
+                    onClose();
+                  } catch (err) {
+                    console.error(err);
+                  }
                 }}
                 className="flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium text-alert hover:bg-alert/5">
                 
@@ -240,87 +188,8 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
               </div>
             </header>
 
-            {stage === 'choose' &&
-          <div className="flex min-h-0 flex-1 flex-col justify-center gap-3 px-5">
-                <div>
-                  <h2 className="text-xl font-bold tracking-[-0.03em] text-ink">
-                    Where does your pay come from?
-                  </h2>
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted">
-                    A paystub is a one-time document you hand over — not a bank connection. Nothing
-                    saves until you confirm every line.
-                  </p>
-                </div>
-
-                <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-3 rounded-card border border-line bg-surface p-4 text-left transition-colors hover:border-ink/30">
-              
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
-                    <UploadIcon className="h-5 w-5" aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold text-ink">Upload a paystub</span>
-                    <span className="block text-xs text-muted">
-                      Image or PDF — we pre-fill, you review
-                    </span>
-                  </span>
-                </button>
-                <input
-              ref={fileRef}
-              type="file"
-              accept="image/*,application/pdf"
-              onChange={handleFile}
-              className="sr-only"
-              aria-label="Upload paystub" />
-            
-
-                <button
-              type="button"
-              onClick={startManual}
-              className="flex items-center gap-3 rounded-card border border-line bg-surface p-4 text-left transition-colors hover:border-ink/30">
-              
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-canvas text-ink">
-                    <KeyboardIcon className="h-5 w-5" aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold text-ink">Enter it manually</span>
-                    <span className="block text-xs text-muted">Same fields, typed in by hand</span>
-                  </span>
-                </button>
-              </div>
-          }
-
-            {stage === 'scanning' &&
-          <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-                <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-primary/8 text-primary">
-                  <ScanLineIcon className="h-6 w-6" aria-hidden="true" />
-                </span>
-                <p className="text-sm font-semibold text-ink">Reading {fileName}</p>
-                <p className="flex items-center gap-1.5 text-xs text-muted">
-                  <LoaderIcon className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                  Pulling out gross pay, deductions, and taxes&hellip;
-                </p>
-              </div>
-          }
-
-            {stage === 'form' &&
-          <>
+            <>
                 <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
-                  {review.length > 0 &&
-              <div className="flex items-start gap-2.5 rounded-card border border-alert/25 bg-alert/5 px-3 py-2.5">
-                      <FileTextIcon className="mt-0.5 h-4 w-4 shrink-0 text-alert" aria-hidden="true" />
-                      <p className="text-[12px] leading-relaxed text-ink">
-                        Parsed from <span className="font-medium">{fileName}</span>.{' '}
-                        <span className="font-medium text-alert">
-                          {review.length} field{review.length === 1 ? '' : 's'} need review
-                        </span>{' '}
-                        — check each amount, then confirm.
-                      </p>
-                    </div>
-              }
-
                   <section className="rounded-card border border-line bg-surface p-4">
                     <label htmlFor="income-name" className="text-xs font-medium text-muted">
                       Source name
@@ -338,23 +207,16 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
                         <label htmlFor="income-gross" className="text-xs font-medium text-muted">
                           Gross pay
                         </label>
-                        <div
-                      className={`mt-1.5 flex items-center rounded-control border px-3 focus-within:border-ink ${
-                      review.includes('gross') ? 'border-alert/35 bg-alert/[0.04]' : 'border-line'}`
-                      }>
-                      
+                        <div className="mt-1.5 flex items-center rounded-control border border-line px-3 focus-within:border-ink">
                           <span className="text-sm text-subtle">$</span>
                           <input
                         id="income-gross"
                         value={gross}
                         inputMode="decimal"
-                        onChange={(e) => {
-                          setGross(sanitizeAmountInput(e.target.value));
-                          confirmField('gross');
-                        }}
+                        onChange={(e) => setGross(sanitizeAmountInput(e.target.value))}
                         placeholder="0"
                         className="tabular w-full bg-transparent px-1.5 py-2.5 text-sm text-ink outline-none" />
-                      
+
                         </div>
                       </div>
                       <div className="min-w-0 flex-1">
@@ -376,15 +238,6 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
                       </div>
                     </div>
 
-                    {review.includes('gross') &&
-                <button
-                  type="button"
-                  onClick={() => confirmField('gross')}
-                  className="mt-2 rounded-full border border-alert/25 bg-alert/10 px-2.5 py-1 text-[11px] font-medium text-alert">
-                  
-                        Gross pay looks right
-                      </button>
-                }
                   </section>
 
                   <DeductionEditor
@@ -392,10 +245,8 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
                 hint="Tag anything that's really savings — 401(k), HSA — so it feeds your savings rate."
                 rows={preTax}
                 savingsCategories={savingsCategories}
-                reviewIds={review}
-                onChange={setPreTax}
-                onConfirm={confirmField} />
-              
+                onChange={setPreTax} />
+
 
                   <section className="rounded-card border border-line bg-surface">
                     <div className="border-b border-line px-4 py-2.5">
@@ -408,43 +259,36 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
                     </div>
                     <ul className="divide-y divide-line">
                       {taxes.map((row) =>
-                  <li
-                    key={row.id}
-                    className={`flex items-center gap-2 px-3 py-2.5 ${
-                    review.includes(row.id) ? 'bg-alert/[0.04]' : ''}`
-                    }>
-                    
+                  <li key={row.id} className="flex items-center gap-2 px-3 py-2.5">
                           <input
                       value={row.label}
-                      onChange={(e) => {
-                        setTaxes(
-                          taxes.map((t) =>
-                          t.id === row.id ? { ...t, label: e.target.value } : t
-                          )
-                        );
-                        confirmField(row.id);
-                      }}
+                      onChange={(e) =>
+                      setTaxes(
+                        taxes.map((t) =>
+                        t.id === row.id ? { ...t, label: e.target.value } : t
+                        )
+                      )
+                      }
                       aria-label="Tax label"
                       className="min-w-0 flex-1 rounded-control border border-line bg-surface px-2.5 py-2 text-sm text-ink outline-none focus:border-ink" />
-                    
+
                           <div className="flex w-24 shrink-0 items-center rounded-control border border-line bg-surface px-2 focus-within:border-ink">
                             <span className="text-sm text-subtle">$</span>
                             <input
                         value={row.amount}
                         inputMode="decimal"
-                        onChange={(e) => {
-                          setTaxes(
-                            taxes.map((t) =>
-                            t.id === row.id ?
-                            { ...t, amount: sanitizeAmountInput(e.target.value) } :
-                            t
-                            )
-                          );
-                          confirmField(row.id);
-                        }}
+                        onChange={(e) =>
+                        setTaxes(
+                          taxes.map((t) =>
+                          t.id === row.id ?
+                          { ...t, amount: sanitizeAmountInput(e.target.value) } :
+                          t
+                          )
+                        )
+                        }
                         aria-label="Tax amount"
                         className="tabular w-full bg-transparent px-1 py-2 text-right text-sm text-ink outline-none" />
-                      
+
                           </div>
                           <button
                       type="button"
@@ -474,10 +318,8 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
                 hint="Roth transfers count as Retirement/Savings; garnishments and benefits are Other."
                 rows={postTax}
                 savingsCategories={savingsCategories}
-                reviewIds={review}
-                onChange={setPostTax}
-                onConfirm={confirmField} />
-              
+                onChange={setPostTax} />
+
 
                   <section className="rounded-card border border-line bg-surface p-4">
                     <div className="flex items-baseline justify-between">
@@ -544,9 +386,7 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
                 disabled={!canSave}
                 className="h-12 w-full rounded-control bg-primary text-sm font-semibold text-white transition-transform active:scale-[0.99] disabled:bg-line disabled:text-subtle">
                 
-                    {review.length > 0 ?
-                `Confirm ${review.length} field${review.length === 1 ? '' : 's'} to save` :
-                !name.trim() ?
+                    {!name.trim() ?
                 'Name this income source' :
                 grossValue <= 0 ?
                 'Enter gross pay' :
@@ -556,7 +396,6 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
                   </button>
                 </div>
               </>
-          }
           </motion.div>
         </motion.div>
       }

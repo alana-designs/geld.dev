@@ -4,7 +4,6 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckIcon,
-  FileTextIcon,
   PlusIcon,
   WalletIcon } from
 'lucide-react';
@@ -24,6 +23,22 @@ export function OnboardingSetup() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [newName, setNewName] = useState<Record<string, string>>({});
   const [incomeOpen, setIncomeOpen] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
+
+  const finish = async () => {
+    setFinishing(true);
+    setFinishError(null);
+    try {
+      await completeSetup();
+    } catch (err) {
+      setFinishError(
+        err instanceof Error ? err.message : 'Could not finish setup — try again.'
+      );
+    } finally {
+      setFinishing(false);
+    }
+  };
 
   const selected = useMemo(() => categories.filter((c) => !c.archived), [categories]);
   const goalTotal = selected.reduce((sum, c) => sum + c.monthlyGoal, 0);
@@ -209,8 +224,8 @@ export function OnboardingSetup() {
 
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
               <p className="text-sm leading-relaxed text-muted">
-                Budgets should sit on real take-home pay, not gross salary. Upload a paystub and
-                review what we read off it, or type the numbers in yourself.
+                Budgets should sit on real take-home pay, not gross salary. Type in your gross pay,
+                deductions, and taxes so we can calculate what's actually left to spend.
               </p>
 
               {incomeSources.length > 0 ?
@@ -252,17 +267,14 @@ export function OnboardingSetup() {
                   </span>
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold text-ink">Set up income</span>
-                    <span className="block text-xs text-muted">
-                      Upload a paystub or enter it by hand
-                    </span>
+                    <span className="block text-xs text-muted">Gross pay, deductions, and taxes</span>
                   </span>
                 </button>
             }
 
               <p className="mt-3 flex items-start gap-2 px-1 text-[11px] leading-relaxed text-subtle">
-                <FileTextIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                A paystub is a document you hand over once — never a bank connection. Nothing saves
-                until you confirm each line.
+                <WalletIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                This app never connects to a bank. Every number here is typed in by hand.
               </p>
             </motion.div>
           }
@@ -272,7 +284,10 @@ export function OnboardingSetup() {
       <footer
         className="shrink-0 border-t border-line bg-surface px-4 py-3"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-        
+
+        {finishError &&
+        <p className="mx-auto mb-2 max-w-2xl text-xs text-alert">{finishError}</p>
+        }
         <div className="mx-auto flex max-w-2xl items-center gap-2">
           {step > 0 &&
           <button
@@ -280,27 +295,29 @@ export function OnboardingSetup() {
             onClick={() => setStep(step - 1 as 0 | 1)}
             aria-label="Back"
             className="flex h-12 items-center gap-1.5 rounded-control border border-line px-4 text-sm font-medium text-muted transition-colors hover:text-ink">
-            
+
               <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
               Back
             </button>
           }
           <button
             type="button"
-            disabled={selected.length === 0}
-            onClick={() => step === 2 ? completeSetup() : setStep(step + 1 as 1 | 2)}
+            disabled={selected.length === 0 || finishing}
+            onClick={() => step === 2 ? finish() : setStep(step + 1 as 1 | 2)}
             className="flex h-12 flex-1 items-center justify-center gap-1.5 rounded-control bg-primary text-sm font-semibold text-white transition-transform active:scale-[0.99] disabled:bg-line disabled:text-subtle">
-            
+
             {selected.length === 0 ?
             'Pick at least one category' :
             step === 0 ?
             `Continue with ${selected.length} categories` :
             step === 1 ?
             'Next: your paycheck' :
+            finishing ?
+            'Starting…' :
             incomeSources.length > 0 ?
             'Start tracking' :
             'Skip for now'}
-            {selected.length > 0 && <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />}
+            {selected.length > 0 && !finishing && <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />}
           </button>
         </div>
       </footer>
