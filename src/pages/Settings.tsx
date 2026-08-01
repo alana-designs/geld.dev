@@ -15,11 +15,13 @@ import { IncomeSource } from '../types/income';
 import { formatCurrency } from '../utils/format';
 import {
   frequencyMeta,
+  generateAutoEntries,
   monthlyNet,
   netPerPeriod,
   retirementDeductions,
   sumAmounts } from
 '../utils/income';
+import { totalOf } from '../utils/rollups';
 import { IncomeSourceSheet } from '../components/income/IncomeSourceSheet';
 
 interface SettingsProps {
@@ -27,8 +29,18 @@ interface SettingsProps {
 }
 
 export function Settings({ onSignIn }: SettingsProps) {
-  const { user, signOut, incomeSources, takeHome, members, inviteMember, removeMember, setViewId } =
-  useBudget();
+  const {
+    user,
+    signOut,
+    incomeSources,
+    activeCategories,
+    takeHome,
+    members,
+    inviteMember,
+    removeMember,
+    setViewId,
+    selectedMonth
+  } = useBudget();
   const [sheet, setSheet] = useState<{open: boolean;source: IncomeSource | null;}>({
     open: false,
     source: null
@@ -56,11 +68,10 @@ export function Settings({ onSignIn }: SettingsProps) {
     }
   };
 
-  const autoSavings = incomeSources.reduce(
-    (sum, source) =>
-    sum + sumAmounts(retirementDeductions(source)) * frequencyMeta(source.frequency).perMonth,
-    0
-  );
+  // Same source of truth as the Dashboard's "Total savings rate" — actual
+  // dated auto-entries for the selected month, not a flat per-year average,
+  // so the two numbers never disagree.
+  const autoSavings = totalOf(generateAutoEntries(incomeSources, activeCategories, selectedMonth));
 
   return (
     <div className="space-y-3">
@@ -72,19 +83,16 @@ export function Settings({ onSignIn }: SettingsProps) {
       </header>
 
       <section className="rounded-card border border-line bg-surface">
-        <div className="flex items-baseline justify-between border-b border-line px-4 py-3">
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-subtle">
-              Monthly take-home
-            </p>
-            <p className="tabular text-2xl font-bold tracking-[-0.03em] text-ink">
-              {formatCurrency(takeHome, false)}
-            </p>
-          </div>
+        <div className="border-b border-line px-4 py-3">
+          <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-subtle">
+            Monthly take-home
+          </p>
+          <p className="tabular text-2xl font-bold tracking-[-0.03em] text-ink">
+            {formatCurrency(takeHome, false)}
+          </p>
           {autoSavings > 0 &&
-          <p className="tabular text-right text-xs text-muted">
-              + {formatCurrency(autoSavings, false)}/mo
-              <span className="block text-[11px] text-subtle">payroll savings</span>
+          <p className="mt-1 text-xs text-muted">
+              Already excludes {formatCurrency(autoSavings, false)}/mo sent to savings automatically
             </p>
           }
         </div>
@@ -110,7 +118,8 @@ export function Settings({ onSignIn }: SettingsProps) {
                     <span className="tabular block truncate text-xs text-muted">
                       {formatCurrency(netPerPeriod(source))} {meta.short} ·{' '}
                       {formatCurrency(monthlyNet(source), false)}/mo
-                      {retirement > 0 && ` · ${formatCurrency(retirement)} to savings`}
+                      {retirement > 0 &&
+                      ` · ${formatCurrency(retirement)}/paycheck already went to savings`}
                     </span>
                     <span className="block text-[11px] text-subtle">
                       Updated {format(parseISO(source.updatedAt), 'MMM d, yyyy')}
