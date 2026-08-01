@@ -1,0 +1,121 @@
+import { format, parseISO } from 'date-fns';
+import { Category, ParentCategory, Transaction } from '../types/budget';
+
+/** yyyy-MM key for a date or ISO date string. */
+export function toMonthKey(value: Date | string): string {
+  return typeof value === 'string' ? value.slice(0, 7) : format(value, 'yyyy-MM');
+}
+
+export function monthLabel(key: string): string {
+  return format(parseISO(`${key}-01`), 'MMMM yyyy');
+}
+
+export function shortMonthLabel(key: string): string {
+  return format(parseISO(`${key}-01`), 'MMM yyyy');
+}
+
+export function inMonth(transactions: Transaction[], key: string) {
+  return transactions.filter((tx) => tx.date.slice(0, 7) === key);
+}
+
+/**
+ * Every month from the user's first entry through the current month.
+ * Newest first — you can't scroll back further than you have data for.
+ */
+export function availableMonths(transactions: Transaction[], today = new Date()): string[] {
+  const current = toMonthKey(today);
+  if (transactions.length === 0) return [current];
+
+  const earliest = transactions.reduce(
+    (min, tx) => tx.date < min ? tx.date : min,
+    transactions[0].date
+  );
+  const [startYear, startMonth] = earliest.slice(0, 7).split('-').map(Number);
+  const keys: string[] = [];
+  let year = startYear;
+  let month = startMonth;
+  for (let i = 0; i < 240; i += 1) {
+    const key = `${year}-${String(month).padStart(2, '0')}`;
+    keys.push(key);
+    if (key === current) break;
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  if (!keys.includes(current)) keys.push(current);
+  return keys.reverse();
+}
+
+export function totalOf(transactions: Transaction[]) {
+  return transactions.reduce((sum, tx) => sum + tx.amount, 0);
+}
+
+export function totalsByParent(
+transactions: Transaction[],
+categories: Category[])
+: Record<ParentCategory, number> {
+  const totals: Record<ParentCategory, number> = { Needs: 0, Wants: 0, Savings: 0 };
+  transactions.forEach((tx) => {
+    const parent = categories.find((c) => c.id === tx.categoryId)?.parent;
+    if (parent) totals[parent] += tx.amount;
+  });
+  return totals;
+}
+
+export function totalsByCategory(transactions: Transaction[]): Record<string, number> {
+  return transactions.reduce<Record<string, number>>((acc, tx) => {
+    acc[tx.categoryId] = (acc[tx.categoryId] ?? 0) + tx.amount;
+    return acc;
+  }, {});
+}
+
+export interface DayGroup {
+  date: string;
+  label: string;
+  total: number;
+  entries: Transaction[];
+}
+
+export function groupByDay(transactions: Transaction[]): DayGroup[] {
+  const map = new Map<string, Transaction[]>();
+  transactions.forEach((tx) => {
+    map.set(tx.date, [...(map.get(tx.date) ?? []), tx]);
+  });
+  return Array.from(map.entries()).
+  sort((a, b) => a[0] < b[0] ? 1 : -1).
+  map(([date, entries]) => ({
+    date,
+    label: format(parseISO(date), 'EEEE, MMM d'),
+    total: totalOf(entries),
+    entries: [...entries].sort((a, b) => a.createdAt < b.createdAt ? 1 : -1)
+  }));
+}
+
+/** Cumulative spend per day within a month key. */
+export function cumulativeByDay(transactions: Transaction[], key: string, today = new Date()) {
+  const [year, month] = key.split('-').map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const isCurrent = toMonthKey(today) === key;
+  const lastDay = isCurrent ? today.getDate() : daysInMonth;
+
+  const perDay = new Array(daysInMonth).fill(0);
+  transactions.forEach((tx) => {
+    const day = Number(tx.date.slice(8, 10));
+    if (day >= 1 && day <= daysInMonth) perDay[day - 1] += tx.amount;
+  });
+
+  let running = 0;
+  return perDay.slice(0, lastDay).map((amount, index) => {
+    running += amount;
+    return { day: index + 1, spent: Math.round(running) };
+  });
+}
+
+export function usageByCategory(transactions: Transaction[]): Record<string, number> {
+  return transactions.reduce<Record<string, number>>((acc, tx) => {
+    acc[tx.categoryId] = (acc[tx.categoryId] ?? 0) + 1;
+    return acc;
+  }, {});
+}
