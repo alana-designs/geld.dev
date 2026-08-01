@@ -102,7 +102,7 @@ export function MonthOverview({
       <div className="border-t border-line px-1.5 py-1.5">
         {PARENT_CATEGORIES.map((p) => {
           const goal = goals[p];
-          const value = totals[p];
+          const value = p === 'Savings' ? totalSavings : totals[p];
           const over = goal > 0 && value > goal;
           const active = activeParent === p;
           return (
