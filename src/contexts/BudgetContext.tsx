@@ -8,7 +8,7 @@ import {
   ReactNode } from
 'react';
 import type { Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { supabase, setRememberMe } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 import { AuthUser, Category, Member, ParentCategory, Transaction } from '../types/budget';
 import { Deduction, IncomeSource, TaxLine } from '../types/income';
@@ -49,7 +49,7 @@ export interface CategoryPatch {
 interface BudgetContextValue {
   user: AuthUser | null;
   loading: boolean;
-  sendMagicLink: (email: string) => Promise<{ error: string | null }>;
+  sendMagicLink: (email: string, remember?: boolean) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   setupComplete: boolean;
   completeSetup: () => Promise<void>;
@@ -349,7 +349,8 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
   const selfId = profile?.id ?? null;
   const setupComplete = profile?.onboarded ?? false;
 
-  const sendMagicLink = useCallback(async (email: string) => {
+  const sendMagicLink = useCallback(async (email: string, remember: boolean = true) => {
+    setRememberMe(remember);
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: window.location.origin }

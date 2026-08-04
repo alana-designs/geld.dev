@@ -5,7 +5,7 @@ import { ArrowLeftIcon, CheckIcon, LoaderIcon, LogOutIcon, MailIcon, XIcon } fro
 interface AuthModalProps {
   open: boolean;
   onClose: () => void;
-  onSendMagicLink: (email: string) => Promise<{ error: string | null }>;
+  onSendMagicLink: (email: string, remember?: boolean) => Promise<{ error: string | null }>;
   signedInEmail?: string | null;
   onSignOut?: () => void;
 }
@@ -24,6 +24,7 @@ export function AuthModal({
   const [email, setEmail] = useState('');
   const [stage, setStage] = useState<Stage>('email');
   const [error, setError] = useState<string | null>(null);
+  const [remember, setRemember] = useState(true);
 
   useEffect(() => {
     if (!open) {
@@ -49,7 +50,7 @@ export function AuthModal({
     }
     setError(null);
     setStage('sending');
-    const { error: sendError } = await onSendMagicLink(email.trim());
+    const { error: sendError } = await onSendMagicLink(email.trim(), remember);
     if (sendError) {
       setError(sendError);
       setStage('email');
@@ -171,6 +172,16 @@ export function AuthModal({
                     {error}
                   </p>
             }
+
+                <label className="mt-3 flex items-center gap-2 text-xs font-medium text-muted">
+                  <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="h-4 w-4 rounded border-line text-primary accent-primary" />
+
+                  Stay signed in on this device
+                </label>
 
                 <button
               type="submit"
