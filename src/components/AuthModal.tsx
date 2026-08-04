@@ -8,6 +8,8 @@ interface AuthModalProps {
   onSendMagicLink: (email: string, remember?: boolean) => Promise<{ error: string | null }>;
   signedInEmail?: string | null;
   onSignOut?: () => void;
+  name?: string | null;
+  onSaveName?: (name: string) => Promise<void>;
 }
 
 type Stage = 'email' | 'sending' | 'sent';
@@ -19,12 +21,26 @@ export function AuthModal({
   onClose,
   onSendMagicLink,
   signedInEmail,
-  onSignOut
+  onSignOut,
+  name,
+  onSaveName
 }: AuthModalProps) {
   const [email, setEmail] = useState('');
   const [stage, setStage] = useState<Stage>('email');
   const [error, setError] = useState<string | null>(null);
   const [remember, setRemember] = useState(true);
+  const [nameDraft, setNameDraft] = useState('');
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [nameSaved, setNameSaved] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setNameDraft(name ?? '');
+      setNameError(null);
+      setNameSaved(false);
+    }
+  }, [open, name]);
 
   useEffect(() => {
     if (!open) {
@@ -35,6 +51,22 @@ export function AuthModal({
       return () => clearTimeout(t);
     }
   }, [open]);
+
+  const saveName = async () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed || trimmed === name || !onSaveName) return;
+    setNameSaving(true);
+    setNameError(null);
+    try {
+      await onSaveName(trimmed);
+      setNameSaved(true);
+      setTimeout(() => setNameSaved(false), 1800);
+    } catch (err) {
+      setNameError(err instanceof Error ? err.message : 'Could not save your name — try again.');
+    } finally {
+      setNameSaving(false);
+    }
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -105,6 +137,36 @@ export function AuthModal({
                   Your ledger is tied to{' '}
                   <span className="font-medium text-ink">{signedInEmail}</span>.
                 </p>
+
+                <label htmlFor="profile-name" className="mt-5 block text-xs font-medium text-muted">
+                  First name
+                </label>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-subtle">
+                  Shown to household members instead of your email.
+                </p>
+                <div className="mt-1.5 flex gap-2">
+                  <input
+                id="profile-name"
+                value={nameDraft}
+                onChange={(e) => {
+                  setNameDraft(e.target.value);
+                  setNameSaved(false);
+                }}
+                onKeyDown={(e) => e.key === 'Enter' && saveName()}
+                placeholder="e.g. Alana"
+                className="min-w-0 flex-1 rounded-control border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-subtle focus:border-ink" />
+
+                  <button
+                type="button"
+                onClick={saveName}
+                disabled={nameSaving || !nameDraft.trim() || nameDraft.trim() === name}
+                className="shrink-0 rounded-control bg-primary px-3 text-xs font-semibold text-white transition-transform active:scale-[0.98] disabled:opacity-40">
+
+                    {nameSaving ? '…' : nameSaved ? <CheckIcon className="h-4 w-4" aria-hidden="true" /> : 'Save'}
+                  </button>
+                </div>
+                {nameError && <p className="mt-1.5 text-xs text-alert">{nameError}</p>}
+
                 <button
               type="button"
               onClick={() => {
@@ -112,7 +174,7 @@ export function AuthModal({
                 onClose();
               }}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-control border border-line py-3 text-sm font-semibold text-ink transition-colors hover:bg-canvas">
-              
+
                   <LogOutIcon className="h-4 w-4" aria-hidden="true" />
                   Sign out
                 </button>

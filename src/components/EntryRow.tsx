@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
-import { PencilIcon, Trash2Icon, ZapIcon } from 'lucide-react';
+import { PencilIcon, RepeatIcon, Trash2Icon, ZapIcon } from 'lucide-react';
 import { Category, Member, Transaction } from '../types/budget';
 import { formatCurrency } from '../utils/format';
 import { ParentBadge } from './ParentBadge';
@@ -52,7 +52,13 @@ export function EntryRow({ transaction, category, member, onEdit, onDelete }: En
             {transaction.auto &&
             <span className="flex shrink-0 items-center gap-1 rounded-md bg-canvas px-1.5 py-0.5 text-[10px] font-medium text-subtle">
                 <ZapIcon className="h-2.5 w-2.5" aria-hidden="true" />
-                Auto · from paycheck
+                {transaction.autoSource === 'recurring' ? 'Auto · from Expense' : 'Auto · from paycheck'}
+              </span>
+            }
+            {transaction.recurring && !transaction.auto &&
+            <span className="flex shrink-0 items-center gap-1 rounded-md bg-canvas px-1.5 py-0.5 text-[10px] font-medium text-subtle">
+                <RepeatIcon className="h-2.5 w-2.5" aria-hidden="true" />
+                Repeats monthly
               </span>
             }
           </div>
@@ -81,7 +87,9 @@ export function EntryRow({ transaction, category, member, onEdit, onDelete }: En
               <div className="flex shrink-0 items-center gap-1.5">
                 {transaction.auto &&
               <p className="max-w-[11rem] text-right text-[11px] leading-relaxed text-subtle">
-                    Generated from a tagged paystub deduction. Edit it in Settings &rsaquo; Income.
+                    {transaction.autoSource === 'recurring' ?
+                'Generated from a recurring expense. Edit the original entry to change it.' :
+                'Generated from a tagged paystub deduction. Edit it in Settings › Income.'}
                   </p>
               }
                 {!transaction.auto && onEdit &&

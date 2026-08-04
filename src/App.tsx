@@ -12,8 +12,18 @@ import { Budget } from './pages/Budget';
 import { Settings } from './pages/Settings';
 
 function Shell() {
-  const { user, loading, sendMagicLink, signOut, setupComplete, canEdit, selfId, setViewId } =
-  useBudget();
+  const {
+    user,
+    loading,
+    sendMagicLink,
+    signOut,
+    setupComplete,
+    canEdit,
+    selfId,
+    selfName,
+    updateMyName,
+    setViewId
+  } = useBudget();
   const [addOpen, setAddOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
 
@@ -50,7 +60,9 @@ function Shell() {
             className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ink">
             
             <UserIcon className="h-3.5 w-3.5 text-subtle" aria-hidden="true" />
-            <span className="max-w-[10rem] truncate">{user ? user.email : 'Sign in'}</span>
+            <span className="max-w-[10rem] truncate">
+              {user ? selfName ?? user.email : 'Sign in'}
+            </span>
           </button>
         </div>
       </div>
@@ -72,7 +84,9 @@ function Shell() {
         onClose={() => setAuthOpen(false)}
         signedInEmail={user?.email ?? null}
         onSignOut={signOut}
-        onSendMagicLink={sendMagicLink} />
+        onSendMagicLink={sendMagicLink}
+        name={selfName}
+        onSaveName={updateMyName} />
 
 
       {needsSetup && <OnboardingSetup />}

@@ -15,6 +15,7 @@ import { Deduction, IncomeSource, TaxLine } from '../types/income';
 import { STARTER_CATEGORIES } from '../data/starterCategories';
 import { availableMonths, toMonthKey, usageByCategory } from '../utils/rollups';
 import { generateAutoEntries, totalMonthlyNet } from '../utils/income';
+import { generateRecurringEntries } from '../utils/recurring';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 type CategoryRow = Database['public']['Tables']['categories']['Row'];
@@ -37,6 +38,7 @@ interface NewTransaction {
   categoryId: string;
   description: string;
   date: string;
+  recurring?: boolean;
 }
 
 export interface CategoryPatch {
@@ -65,6 +67,9 @@ interface BudgetContextValue {
   canEdit: boolean;
   /** Your own member id — stable once signed in, used to switch back to "your" tab. */
   selfId: string | null;
+  /** Your own display name — editable, shown to household members instead of your email. */
+  selfName: string | null;
+  updateMyName: (name: string) => Promise<void>;
   inviteMember: (email: string, name?: string) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
   memberById: (id: string) => Member | undefined;
@@ -74,6 +79,7 @@ interface BudgetContextValue {
   transactions: Transaction[];
   takeHome: number;
   autoEntriesFor: (monthKey: string) => Transaction[];
+  recurringEntriesFor: (monthKey: string) => Transaction[];
   totalsByMember: (monthKey: string) => {
     member: Member;
     spent: number;
@@ -115,7 +121,8 @@ const mapTransaction = (row: TransactionRow): Transaction => ({
   categoryId: row.category_id,
   description: row.description,
   date: row.date,
-  createdAt: row.created_at
+  createdAt: row.created_at,
+  recurring: row.recurring
 });
 
 const mapDeduction = (row: IncomeDeductionRow): Deduction => ({
@@ -347,9 +354,28 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
 
   const user: AuthUser | null = session?.user?.email ? { email: session.user.email } : null;
   const selfId = profile?.id ?? null;
+  const selfName = profile?.name ?? null;
   const setupComplete = profile?.onboarded ?? false;
 
-  const sendMagicLink = useCallback(async (email: string, remember: boolean = true) => {
+  const updateMyName = useCallback(
+    async (name: string) => {
+      if (!profile) return;
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      const { data, error } = await supabase.
+      from('profiles').
+      update({ name: trimmed }).
+      eq('id', profile.id).
+      select().
+      single();
+      if (error) throw error;
+      setProfile(data);
+      setProfiles((prev) => prev.map((p) => p.id === data.id ? data : p));
+    },
+    [profile]
+  );
+
+  const sendMagicLink = useCallback(async (email: string, remember = true) => {
     setRememberMe(remember);
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -475,15 +501,23 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     [viewIncome, categories]
   );
 
+  const recurringEntriesFor = useCallback(
+    (key: string) => generateRecurringEntries(viewTransactions, key),
+    [viewTransactions]
+  );
+
   const totalsByMember = useCallback(
     (key: string) =>
     activeMembers.map((member) => {
+      const memberTransactions = transactions.filter((tx) => tx.memberId === member.id);
       const memberIncome = allIncomeSources.filter((s) => s.memberId === member.id);
       const auto = generateAutoEntries(memberIncome, categories, key);
+      const recurring = generateRecurringEntries(memberTransactions, key);
       return {
         member,
-        spent: transactions.
-        filter((tx) => tx.memberId === member.id && tx.date.slice(0, 7) === key).
+        spent: [
+        ...memberTransactions.filter((tx) => tx.date.slice(0, 7) === key),
+        ...recurring].
         reduce((sum, tx) => sum + tx.amount, 0),
         takeHome: totalMonthlyNet(memberIncome),
         autoSavings: auto.reduce((sum, tx) => sum + tx.amount, 0)
@@ -530,7 +564,8 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
         category_id: input.categoryId,
         amount: input.amount,
         description: input.description,
-        date: input.date
+        date: input.date,
+        recurring: input.recurring ?? false
       }).
       select().
       single();
@@ -549,6 +584,7 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
       if (patch.categoryId !== undefined) dbPatch.category_id = patch.categoryId;
       if (patch.description !== undefined) dbPatch.description = patch.description;
       if (patch.date !== undefined) dbPatch.date = patch.date;
+      if (patch.recurring !== undefined) dbPatch.recurring = patch.recurring;
       const { data, error } = await supabase.
       from('transactions').
       update(dbPatch).
@@ -808,6 +844,8 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
       isHousehold,
       canEdit,
       selfId,
+      selfName,
+      updateMyName,
       inviteMember,
       removeMember,
       memberById,
@@ -815,6 +853,7 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
       transactions: viewTransactions,
       takeHome,
       autoEntriesFor,
+      recurringEntriesFor,
       totalsByMember,
       activeCategories,
       incomeSources: myIncome,
@@ -847,6 +886,8 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     isHousehold,
     canEdit,
     selfId,
+    selfName,
+    updateMyName,
     inviteMember,
     removeMember,
     memberById,
@@ -854,6 +895,7 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     viewTransactions,
     takeHome,
     autoEntriesFor,
+    recurringEntriesFor,
     totalsByMember,
     activeCategories,
     myIncome,

@@ -30,8 +30,14 @@ export interface Transaction {
   /** ISO date string: yyyy-MM-dd */
   date: string;
   createdAt: string;
-  /** Generated from a tagged paystub deduction, not typed in by hand. */
+  /** True on a real, manually-logged entry that projects forward monthly on this date. */
+  recurring?: boolean;
+  /** Generated, not typed in by hand — read-only, edit the source instead. */
   auto?: boolean;
+  /** What generated this `auto` entry. Payroll entries stay out of spend
+   *  reconciliation (that money was never spendable cash); recurring-expense
+   *  entries are real projected spending and count normally. */
+  autoSource?: 'income' | 'recurring';
 }
 
 export interface AuthUser {

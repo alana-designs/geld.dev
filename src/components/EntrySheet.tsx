@@ -40,6 +40,7 @@ export function EntrySheet({ open, onClose, transaction = null }: EntrySheetProp
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [recurring, setRecurring] = useState(false);
   const descriptionRef = useRef<HTMLInputElement>(null);
   const amountRef = useRef<HTMLInputElement>(null);
 
@@ -57,6 +58,7 @@ export function EntrySheet({ open, onClose, transaction = null }: EntrySheetProp
       setDescription(transaction.description);
       setDate(transaction.date);
       setMode('text');
+      setRecurring(Boolean(transaction.recurring));
     } else {
       setRawAmount('');
       setParent('Needs');
@@ -64,6 +66,7 @@ export function EntrySheet({ open, onClose, transaction = null }: EntrySheetProp
       setDescription('');
       setDate(today());
       setMode('amount');
+      setRecurring(false);
     }
     setDateOpen(false);
     setCreating(false);
@@ -123,7 +126,7 @@ export function EntrySheet({ open, onClose, transaction = null }: EntrySheetProp
 
   const save = async () => {
     if (!canSave || !categoryId) return;
-    const payload = { amount, categoryId, description: description.trim(), date };
+    const payload = { amount, categoryId, description: description.trim(), date, recurring };
     try {
       if (transaction) await updateTransaction(transaction.id, payload);else
       await addTransaction(payload);
@@ -427,8 +430,18 @@ export function EntrySheet({ open, onClose, transaction = null }: EntrySheetProp
                 onFocus={() => setMode('text')}
                 placeholder="What was it? e.g. Farmers market produce"
                 className="w-full rounded-control border border-line bg-surface px-3 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-subtle focus:border-ink" />
-              
+
               </div>
+
+              <label className="mt-3 flex items-center gap-2 text-xs font-medium text-muted">
+                <input
+                type="checkbox"
+                checked={recurring}
+                onChange={(e) => setRecurring(e.target.checked)}
+                className="h-4 w-4 rounded border-line text-primary accent-primary" />
+
+                Repeats monthly on this date
+              </label>
             </div>
 
             <div

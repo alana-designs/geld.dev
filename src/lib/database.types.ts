@@ -135,6 +135,7 @@ export interface Database {
           amount: number;
           description: string;
           date: string;
+          recurring: boolean;
           created_at: string;
         };
         Insert: {
@@ -145,6 +146,7 @@ export interface Database {
           amount: number;
           description: string;
           date: string;
+          recurring?: boolean;
           created_at?: string;
         };
         Update: {
@@ -152,6 +154,7 @@ export interface Database {
           amount?: number;
           description?: string;
           date?: string;
+          recurring?: boolean;
         };
         Relationships: [];
       };

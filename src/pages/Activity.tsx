@@ -18,6 +18,7 @@ export function Activity() {
     selectedMonth,
     setSelectedMonth,
     autoEntriesFor,
+    recurringEntriesFor,
     canEdit,
     isHousehold,
     memberById
@@ -32,8 +33,8 @@ export function Activity() {
     const q = query.trim().toLowerCase();
     // Searching spans every month; browsing stays in the selected month.
     const auto = searching ?
-    months.flatMap((key) => autoEntriesFor(key)) :
-    autoEntriesFor(selectedMonth);
+    months.flatMap((key) => [...autoEntriesFor(key), ...recurringEntriesFor(key)]) :
+    [...autoEntriesFor(selectedMonth), ...recurringEntriesFor(selectedMonth)];
     const scope = searching ?
     [...transactions, ...auto] :
     [...inMonth(transactions, selectedMonth), ...auto];
@@ -47,7 +48,17 @@ export function Activity() {
       return matchesParent && matchesQuery;
     });
     return groupByDay(filtered);
-  }, [transactions, query, parent, categoryById, selectedMonth, searching, months, autoEntriesFor]);
+  }, [
+  transactions,
+  query,
+  parent,
+  categoryById,
+  selectedMonth,
+  searching,
+  months,
+  autoEntriesFor,
+  recurringEntriesFor]
+  );
 
   return (
     <div className="space-y-3">

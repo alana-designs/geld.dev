@@ -35,6 +35,7 @@ export function Dashboard({ onAdd }: DashboardProps) {
     selectedMonth,
     setSelectedMonth,
     autoEntriesFor,
+    recurringEntriesFor,
     canEdit,
     isHousehold,
     viewMember,
@@ -43,7 +44,16 @@ export function Dashboard({ onAdd }: DashboardProps) {
   const [activeParent, setActiveParent] = useState<ParentCategory | null>(null);
   const [editing, setEditing] = useState<Transaction | null>(null);
 
-  const monthTx = useMemo(() => inMonth(transactions, selectedMonth), [transactions, selectedMonth]);
+  // Recurring-expense projections are real spending and count normally —
+  // unlike payroll auto-entries below, which stay out of this reconciliation.
+  const recurringTx = useMemo(
+    () => recurringEntriesFor(selectedMonth),
+    [recurringEntriesFor, selectedMonth]
+  );
+  const monthTx = useMemo(
+    () => [...inMonth(transactions, selectedMonth), ...recurringTx],
+    [transactions, selectedMonth, recurringTx]
+  );
   const totals = useMemo(() => totalsByParent(monthTx, categories), [monthTx, categories]);
   const goals = useMemo(() => {
     const g: Record<ParentCategory, number> = { Needs: 0, Wants: 0, Savings: 0 };

@@ -18,6 +18,7 @@ export function Budget() {
     setSelectedMonth,
     takeHome,
     autoEntriesFor,
+    recurringEntriesFor,
     canEdit,
     isHousehold,
     viewMember,
@@ -30,9 +31,14 @@ export function Budget() {
     parent: ParentCategory;
   }>({ open: false, category: null, parent: 'Needs' });
 
+  // Recurring-expense projections count as real spend against the goal.
   const spentByCategory = useMemo(
-    () => totalsByCategory(inMonth(transactions, selectedMonth)),
-    [transactions, selectedMonth]
+    () =>
+    totalsByCategory([
+    ...inMonth(transactions, selectedMonth),
+    ...recurringEntriesFor(selectedMonth)]
+    ),
+    [transactions, selectedMonth, recurringEntriesFor]
   );
 
   // Payroll-funded savings count toward a Savings goal, but stay labelled.
