@@ -8,8 +8,13 @@ import { EntryRow } from '../components/EntryRow';
 import { EntrySheet } from '../components/EntrySheet';
 import { MonthPicker } from '../components/MonthPicker';
 import { MemberTabs } from '../components/MemberTabs';
+import { AddExpenseButton } from '../components/AddExpenseButton';
 
-export function Activity() {
+interface ActivityProps {
+  onAdd: () => void;
+}
+
+export function Activity({ onAdd }: ActivityProps) {
   const {
     transactions,
     categoryById,
@@ -69,7 +74,10 @@ export function Activity() {
           </p>
           <h1 className="text-2xl font-bold tracking-[-0.03em] text-ink">Activity</h1>
         </div>
-        <MonthPicker months={months} value={selectedMonth} onChange={setSelectedMonth} />
+        <div className="flex shrink-0 items-center gap-2">
+          <MonthPicker months={months} value={selectedMonth} onChange={setSelectedMonth} />
+          {canEdit && <AddExpenseButton onClick={onAdd} />}
+        </div>
       </header>
 
       <MemberTabs />

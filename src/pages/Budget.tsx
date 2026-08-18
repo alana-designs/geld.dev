@@ -8,8 +8,13 @@ import { GoalBar } from '../components/GoalBar';
 import { MonthPicker } from '../components/MonthPicker';
 import { CategoryEditorSheet } from '../components/CategoryEditorSheet';
 import { MemberTabs } from '../components/MemberTabs';
+import { AddExpenseButton } from '../components/AddExpenseButton';
 
-export function Budget() {
+interface BudgetProps {
+  onAdd: () => void;
+}
+
+export function Budget({ onAdd }: BudgetProps) {
   const {
     categories,
     transactions,
@@ -67,7 +72,10 @@ export function Budget() {
             'Budget'}
           </h1>
         </div>
-        <MonthPicker months={months} value={selectedMonth} onChange={setSelectedMonth} />
+        <div className="flex shrink-0 items-center gap-2">
+          <MonthPicker months={months} value={selectedMonth} onChange={setSelectedMonth} />
+          {canEdit && <AddExpenseButton onClick={onAdd} />}
+        </div>
       </header>
 
       <MemberTabs />

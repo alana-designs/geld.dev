@@ -98,26 +98,6 @@ export function groupByDay(transactions: Transaction[]): DayGroup[] {
   }));
 }
 
-/** Cumulative spend per day within a month key. */
-export function cumulativeByDay(transactions: Transaction[], key: string, today = new Date()) {
-  const [year, month] = key.split('-').map(Number);
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const isCurrent = toMonthKey(today) === key;
-  const lastDay = isCurrent ? today.getDate() : daysInMonth;
-
-  const perDay = new Array(daysInMonth).fill(0);
-  transactions.forEach((tx) => {
-    const day = Number(tx.date.slice(8, 10));
-    if (day >= 1 && day <= daysInMonth) perDay[day - 1] += tx.amount;
-  });
-
-  let running = 0;
-  return perDay.slice(0, lastDay).map((amount, index) => {
-    running += amount;
-    return { day: index + 1, spent: Math.round(running) };
-  });
-}
-
 export function usageByCategory(transactions: Transaction[]): Record<string, number> {
   return transactions.reduce<Record<string, number>>((acc, tx) => {
     acc[tx.categoryId] = (acc[tx.categoryId] ?? 0) + 1;

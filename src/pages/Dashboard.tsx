@@ -4,21 +4,22 @@ import { ArrowRightIcon, PlusIcon } from 'lucide-react';
 import { useBudget } from '../contexts/BudgetContext';
 import { ParentCategory, Transaction } from '../types/budget';
 import {
-  cumulativeByDay,
   groupByDay,
   inMonth,
   monthLabel,
   totalOf,
+  totalsByCategory,
   totalsByParent } from
 '../utils/rollups';
 import { formatCurrency } from '../utils/format';
 import { MonthOverview } from '../components/MonthOverview';
 import { MonthPicker } from '../components/MonthPicker';
-import { SpendTrend } from '../components/SpendTrend';
+import { TopCategories } from '../components/TopCategories';
 import { EntryRow } from '../components/EntryRow';
 import { EntrySheet } from '../components/EntrySheet';
 import { MemberTabs } from '../components/MemberTabs';
 import { HouseholdBreakdown } from '../components/HouseholdBreakdown';
+import { AddExpenseButton } from '../components/AddExpenseButton';
 
 interface DashboardProps {
   onAdd: () => void;
@@ -68,8 +69,11 @@ export function Dashboard({ onAdd }: DashboardProps) {
   const autoSavings = totalOf(autoTx);
 
   const spent = totalOf(monthTx);
-  const trend = useMemo(() => cumulativeByDay(monthTx, selectedMonth), [monthTx, selectedMonth]);
-  const pace = trend.length ? spent / trend.length : 0;
+
+  const amountsByCategory = useMemo(
+    () => totalsByCategory([...monthTx, ...autoTx]),
+    [monthTx, autoTx]
+  );
 
   const filtered = useMemo(() => {
     const all = [...monthTx, ...autoTx];
@@ -90,24 +94,35 @@ export function Dashboard({ onAdd }: DashboardProps) {
             {isHousehold ? 'Household' : viewMember && !viewMember.isSelf ? viewMember.name : 'Overview'}
           </h1>
         </div>
-        <MonthPicker months={months} value={selectedMonth} onChange={setSelectedMonth} />
+        <div className="flex shrink-0 items-center gap-2">
+          <MonthPicker months={months} value={selectedMonth} onChange={setSelectedMonth} />
+          {canEdit && <AddExpenseButton onClick={onAdd} />}
+        </div>
       </header>
 
       <MemberTabs />
 
-      <MonthOverview
-        totals={totals}
-        goals={goals}
-        spent={spent}
-        takeHome={takeHome}
-        autoSavings={autoSavings}
-        activeParent={activeParent}
-        onSelectParent={setActiveParent} />
-      
+      {/* Household pairs the totals with the per-person split, then spans the
+          category ranking full width. Personal tabs sit side by side. */}
+      <div className="grid gap-3 lg:grid-cols-2 lg:items-start">
+        <MonthOverview
+          totals={totals}
+          goals={goals}
+          spent={spent}
+          takeHome={takeHome}
+          autoSavings={autoSavings}
+          activeParent={activeParent}
+          onSelectParent={setActiveParent} />
 
-      {isHousehold && <HouseholdBreakdown monthKey={selectedMonth} />}
 
-      <SpendTrend data={trend} pace={pace} />
+        {isHousehold ?
+        <HouseholdBreakdown monthKey={selectedMonth} /> :
+
+        <TopCategories amounts={amountsByCategory} />
+        }
+      </div>
+
+      {isHousehold && <TopCategories amounts={amountsByCategory} />}
 
       <section className="overflow-hidden rounded-card border border-line bg-surface">
         <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
