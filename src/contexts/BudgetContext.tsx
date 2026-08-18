@@ -149,8 +149,10 @@ taxes: IncomeTaxLineRow[])
     id: row.id,
     memberId: row.user_id,
     name: row.name,
+    payType: row.pay_type,
     grossPay: Number(row.gross_pay),
     frequency: row.frequency,
+    paycheckDate: row.paycheck_date,
     preTax: mine.filter((d) => d.phase === 'pre_tax').map(mapDeduction),
     postTax: mine.filter((d) => d.phase === 'post_tax').map(mapDeduction),
     taxes: taxes.filter((t) => t.income_source_id === row.id).map(mapTaxLine),
@@ -494,7 +496,10 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     [allIncomeSources, inView]
   );
 
-  const takeHome = useMemo(() => totalMonthlyNet(viewIncome), [viewIncome]);
+  const takeHome = useMemo(
+    () => totalMonthlyNet(viewIncome, selectedMonth),
+    [viewIncome, selectedMonth]
+  );
 
   const autoEntriesFor = useCallback(
     (key: string) => generateAutoEntries(viewIncome, categories, key),
@@ -519,7 +524,7 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
         ...memberTransactions.filter((tx) => tx.date.slice(0, 7) === key),
         ...recurring].
         reduce((sum, tx) => sum + tx.amount, 0),
-        takeHome: totalMonthlyNet(memberIncome),
+        takeHome: totalMonthlyNet(memberIncome, key),
         autoSavings: auto.reduce((sum, tx) => sum + tx.amount, 0)
       };
     }),
@@ -540,7 +545,19 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     [transactions, profile]
   );
 
-  const months = useMemo(() => availableMonths(transactions), [transactions]);
+  // Hourly paychecks count toward whichever month they were received in, so
+  // that month needs to be reachable even if nothing else was logged yet.
+  const hourlyPaycheckMonths = useMemo(
+    () =>
+    allIncomeSources.
+    map((s) => s.payType === 'hourly' ? s.paycheckDate?.slice(0, 7) : null).
+    filter((key): key is string => Boolean(key)),
+    [allIncomeSources]
+  );
+  const months = useMemo(
+    () => availableMonths(transactions, new Date(), hourlyPaycheckMonths),
+    [transactions, hourlyPaycheckMonths]
+  );
   useEffect(() => {
     if (!months.includes(selectedMonth)) setSelectedMonth(months[0]);
   }, [months, selectedMonth]);
@@ -730,8 +747,10 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
           user_id: profile.id,
           household_id: profile.household_id,
           name: source.name,
+          pay_type: source.payType,
           gross_pay: source.grossPay,
-          frequency: source.frequency,
+          frequency: source.payType === 'hourly' ? null : source.frequency,
+          paycheck_date: source.payType === 'hourly' ? source.paycheckDate : null,
           net_override: source.netOverride
         }).
         select().
@@ -745,8 +764,10 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
         from('income_sources').
         update({
           name: source.name,
+          pay_type: source.payType,
           gross_pay: source.grossPay,
-          frequency: source.frequency,
+          frequency: source.payType === 'hourly' ? null : source.frequency,
+          paycheck_date: source.payType === 'hourly' ? source.paycheckDate : null,
           net_override: source.netOverride,
           updated_at: updatedAt
         }).

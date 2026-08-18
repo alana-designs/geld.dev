@@ -32,12 +32,25 @@ export function netPerPeriod(source: IncomeSource) {
   return source.netOverride ?? computedNet(source);
 }
 
-export function monthlyNet(source: IncomeSource) {
+/**
+ * Salaried sources project a fixed rate every month, regardless of which
+ * month is being viewed. Hourly sources have no rate to project — each one
+ * is a single logged paycheck that counts only toward the month it was
+ * actually received (`monthKey`), the same way a dated transaction does.
+ * Log a new hourly source each payday and each one lands in its own month;
+ * averaging several of them together is a follow-up feature.
+ */
+export function monthlyNet(source: IncomeSource, monthKey: string) {
+  if (source.payType === 'hourly') {
+    if (!source.paycheckDate || source.paycheckDate.slice(0, 7) !== monthKey) return 0;
+    return netPerPeriod(source);
+  }
+  if (!source.frequency) return 0;
   return netPerPeriod(source) * frequencyMeta(source.frequency).perMonth;
 }
 
-export function totalMonthlyNet(sources: IncomeSource[]) {
-  return sources.reduce((sum, source) => sum + monthlyNet(source), 0);
+export function totalMonthlyNet(sources: IncomeSource[], monthKey: string) {
+  return sources.reduce((sum, source) => sum + monthlyNet(source, monthKey), 0);
 }
 
 export function retirementDeductions(source: IncomeSource): Deduction[] {
@@ -77,6 +90,8 @@ today = new Date())
 
   const entries: Transaction[] = [];
   sources.forEach((source) => {
+    // Hourly paychecks land on no fixed schedule — never project these.
+    if (source.payType === 'hourly' || !source.frequency) return;
     const deductions = retirementDeductions(source);
     if (deductions.length === 0) return;
     payDatesInMonth(source.frequency, key, today).forEach((date) => {

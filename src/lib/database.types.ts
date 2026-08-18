@@ -4,6 +4,7 @@
 
 export type ParentCategory = 'Needs' | 'Wants' | 'Savings';
 export type PayFrequency = 'weekly' | 'biweekly' | 'semimonthly' | 'monthly';
+export type PayType = 'salaried' | 'hourly';
 export type DeductionPhase = 'pre_tax' | 'post_tax';
 export type DeductionTag = 'retirement' | 'other';
 export type InviteStatus = 'pending' | 'accepted';
@@ -164,8 +165,10 @@ export interface Database {
           user_id: string;
           household_id: string;
           name: string;
+          pay_type: PayType;
           gross_pay: number;
-          frequency: PayFrequency;
+          frequency: PayFrequency | null;
+          paycheck_date: string | null;
           net_override: number | null;
           updated_at: string;
         };
@@ -174,15 +177,19 @@ export interface Database {
           user_id: string;
           household_id: string;
           name: string;
+          pay_type?: PayType;
           gross_pay: number;
-          frequency: PayFrequency;
+          frequency?: PayFrequency | null;
+          paycheck_date?: string | null;
           net_override?: number | null;
           updated_at?: string;
         };
         Update: {
           name?: string;
+          pay_type?: PayType;
           gross_pay?: number;
-          frequency?: PayFrequency;
+          frequency?: PayFrequency | null;
+          paycheck_date?: string | null;
           net_override?: number | null;
           updated_at?: string;
         };

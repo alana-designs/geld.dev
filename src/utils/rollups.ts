@@ -21,15 +21,20 @@ export function inMonth(transactions: Transaction[], key: string) {
 /**
  * Every month from the user's first entry through the current month.
  * Newest first — you can't scroll back further than you have data for.
+ * `extraMonths` (yyyy-MM keys, e.g. hourly paycheck dates) can push the
+ * start earlier than the oldest transaction; any month the contiguous range
+ * then passes through is included automatically.
  */
-export function availableMonths(transactions: Transaction[], today = new Date()): string[] {
+export function availableMonths(
+transactions: Transaction[],
+today = new Date(),
+extraMonths: string[] = [])
+: string[] {
   const current = toMonthKey(today);
-  if (transactions.length === 0) return [current];
+  const dates = [...transactions.map((tx) => tx.date), ...extraMonths.map((key) => `${key}-01`)];
+  if (dates.length === 0) return [current];
 
-  const earliest = transactions.reduce(
-    (min, tx) => tx.date < min ? tx.date : min,
-    transactions[0].date
-  );
+  const earliest = dates.reduce((min, date) => date < min ? date : min, dates[0]);
   const [startYear, startMonth] = earliest.slice(0, 7).split('-').map(Number);
   const keys: string[] = [];
   let year = startYear;

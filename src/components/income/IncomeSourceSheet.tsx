@@ -1,14 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { BriefcaseIcon, ClockIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useBudget } from '../../contexts/BudgetContext';
 import {
   DeductionDraft,
   IncomeSource,
   PayFrequency,
+  PayType,
   TaxDraft } from
 '../../types/income';
 import { FREQUENCIES, frequencyMeta, sumAmounts } from '../../utils/income';
+import { monthLabel, toMonthKey } from '../../utils/rollups';
 import { formatCurrency, parseAmount, sanitizeAmountInput, toAmountInput } from '../../utils/format';
 import { DeductionEditor } from './DeductionEditor';
 
@@ -18,14 +21,37 @@ interface IncomeSourceSheetProps {
   onClose: () => void;
 }
 
+type Stage = 'payType' | 'form';
+
 const uid = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
+const today = () => format(new Date(), 'yyyy-MM-dd');
+
+const defaultDeductions = (savingsCategoryId: string | undefined) => ({
+  preTax: [
+  {
+    id: uid('pt'),
+    label: '401(k) contribution',
+    amount: '',
+    tag: 'retirement' as const,
+    categoryId: savingsCategoryId
+  }],
+
+  taxes: [
+  { id: uid('tx'), label: 'Federal income tax', amount: '' },
+  { id: uid('tx'), label: 'State income tax', amount: '' },
+  { id: uid('tx'), label: 'FICA', amount: '' }]
+
+});
 
 export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetProps) {
   const { categories, saveIncomeSource, deleteIncomeSource } = useBudget();
 
+  const [stage, setStage] = useState<Stage>('payType');
+  const [payType, setPayType] = useState<PayType>('salaried');
   const [name, setName] = useState('');
   const [gross, setGross] = useState('');
   const [frequency, setFrequency] = useState<PayFrequency>('biweekly');
+  const [paycheckDate, setPaycheckDate] = useState(today);
   const [preTax, setPreTax] = useState<DeductionDraft[]>([]);
   const [taxes, setTaxes] = useState<TaxDraft[]>([]);
   const [postTax, setPostTax] = useState<DeductionDraft[]>([]);
@@ -39,9 +65,12 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
   useEffect(() => {
     if (!open) return;
     if (source) {
+      setStage('form');
+      setPayType(source.payType);
       setName(source.name);
       setGross(toAmountInput(source.grossPay));
-      setFrequency(source.frequency);
+      setFrequency(source.frequency ?? 'biweekly');
+      setPaycheckDate(source.paycheckDate ?? today());
       setPreTax(
         source.preTax.map((d) => ({ ...d, amount: toAmountInput(d.amount) }))
       );
@@ -51,27 +80,24 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
       );
       setOverride(source.netOverride != null ? toAmountInput(source.netOverride) : '');
     } else {
+      setStage('payType');
+      setPayType('salaried');
       setName('My paycheck');
       setGross('');
       setFrequency('biweekly');
-      setPreTax([
-      {
-        id: uid('pt'),
-        label: '401(k) contribution',
-        amount: '',
-        tag: 'retirement',
-        categoryId: savingsCategories[0]?.id
-      }]
-      );
-      setTaxes([
-      { id: uid('tx'), label: 'Federal income tax', amount: '' },
-      { id: uid('tx'), label: 'State income tax', amount: '' },
-      { id: uid('tx'), label: 'FICA', amount: '' }]
-      );
+      setPaycheckDate(today());
+      const defaults = defaultDeductions(savingsCategories[0]?.id);
+      setPreTax(defaults.preTax);
+      setTaxes(defaults.taxes);
       setPostTax([]);
       setOverride('');
     }
   }, [open, source]);
+
+  const choosePayType = (type: PayType) => {
+    setPayType(type);
+    setStage('form');
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -85,12 +111,16 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
   const postTotal = sumAmounts(postTax.map((d) => ({ amount: parseAmount(d.amount) })));
   const calculatedNet = grossValue - preTotal - taxTotal - postTotal;
   const netValue = override.trim() ? parseAmount(override) : calculatedNet;
-  const monthly = netValue * frequencyMeta(frequency).perMonth;
+  const monthly = payType === 'hourly' ? null : netValue * frequencyMeta(frequency).perMonth;
+  const paycheckMonthLabel = payType === 'hourly' && paycheckDate ? monthLabel(toMonthKey(paycheckDate)) : null;
   const retirementTotal =
   sumAmounts(preTax.filter((d) => d.tag === 'retirement').map((d) => ({ amount: parseAmount(d.amount) }))) +
   sumAmounts(postTax.filter((d) => d.tag === 'retirement').map((d) => ({ amount: parseAmount(d.amount) })));
 
-  const canSave = name.trim().length > 0 && grossValue > 0;
+  const canSave =
+  name.trim().length > 0 &&
+  grossValue > 0 && (
+  payType === 'salaried' || Boolean(paycheckDate));
 
   const save = async () => {
     if (!canSave) return;
@@ -99,8 +129,10 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
       id: source?.id ?? uid('income'),
       memberId: source?.memberId ?? 'me',
       name: name.trim(),
+      payType,
       grossPay: grossValue,
-      frequency,
+      frequency: payType === 'hourly' ? null : frequency,
+      paycheckDate: payType === 'hourly' ? paycheckDate : null,
       preTax: preTax.
       filter((d) => d.label.trim() && parseAmount(d.amount) > 0).
       map((d) => ({
@@ -148,7 +180,8 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
           <motion.div
           role="dialog"
           aria-modal="true"
-          aria-label={source ? 'Edit income source' : 'Add income source'}
+          aria-label={
+          source ? 'Edit income source' : stage === 'payType' ? 'Choose pay type' : 'Add income source'}
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
@@ -188,7 +221,53 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
               </div>
             </header>
 
-            <>
+            {stage === 'payType' &&
+          <div className="flex min-h-0 flex-1 flex-col justify-center gap-3 px-5">
+                <div>
+                  <h2 className="text-xl font-bold tracking-[-0.03em] text-ink">
+                    How are you paid?
+                  </h2>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted">
+                    This changes what we ask for next.
+                  </p>
+                </div>
+
+                <button
+              type="button"
+              onClick={() => choosePayType('salaried')}
+              className="flex items-center gap-3 rounded-card border border-line bg-surface p-4 text-left transition-colors hover:border-ink/30">
+
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
+                    <BriefcaseIcon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-ink">Salaried</span>
+                    <span className="block text-xs text-muted">
+                      Fixed pay on a regular schedule
+                    </span>
+                  </span>
+                </button>
+
+                <button
+              type="button"
+              onClick={() => choosePayType('hourly')}
+              className="flex items-center gap-3 rounded-card border border-line bg-surface p-4 text-left transition-colors hover:border-ink/30">
+
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-canvas text-ink">
+                    <ClockIcon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-ink">Hourly</span>
+                    <span className="block text-xs text-muted">
+                      Pay varies — log each paycheck as it comes
+                    </span>
+                  </span>
+                </button>
+              </div>
+          }
+
+            {stage === 'form' &&
+          <>
                 <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
                   <section className="rounded-card border border-line bg-surface p-4">
                     <label htmlFor="income-name" className="text-xs font-medium text-muted">
@@ -219,25 +298,47 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
 
                         </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <label htmlFor="income-frequency" className="text-xs font-medium text-muted">
-                          Pay frequency
-                        </label>
-                        <select
-                      id="income-frequency"
-                      value={frequency}
-                      onChange={(e) => setFrequency(e.target.value as PayFrequency)}
-                      className="mt-1.5 w-full rounded-control border border-line bg-surface px-2.5 py-2.5 text-sm text-ink outline-none focus:border-ink">
-                      
-                          {FREQUENCIES.map((f) =>
-                      <option key={f.value} value={f.value}>
-                              {f.label}
-                            </option>
-                      )}
-                        </select>
-                      </div>
+                      {payType === 'salaried' ?
+                  <div className="min-w-0 flex-1">
+                          <label htmlFor="income-frequency" className="text-xs font-medium text-muted">
+                            Pay frequency
+                          </label>
+                          <select
+                        id="income-frequency"
+                        value={frequency}
+                        onChange={(e) => setFrequency(e.target.value as PayFrequency)}
+                        className="mt-1.5 w-full rounded-control border border-line bg-surface px-2.5 py-2.5 text-sm text-ink outline-none focus:border-ink">
+
+                            {FREQUENCIES.map((f) =>
+                        <option key={f.value} value={f.value}>
+                                {f.label}
+                              </option>
+                        )}
+                          </select>
+                        </div> :
+
+                  <div className="min-w-0 flex-1">
+                          <label htmlFor="income-paycheck-date" className="text-xs font-medium text-muted">
+                            Paycheck received
+                          </label>
+                          <input
+                        id="income-paycheck-date"
+                        type="date"
+                        value={paycheckDate}
+                        max={today()}
+                        onChange={(e) => setPaycheckDate(e.target.value)}
+                        className="mt-1.5 w-full rounded-control border border-line bg-surface px-2.5 py-2.5 text-sm text-ink outline-none focus:border-ink" />
+
+                        </div>
+                  }
                     </div>
 
+                    {payType === 'hourly' &&
+                <p className="mt-3 text-[11px] leading-relaxed text-subtle">
+                        No fixed schedule — log a new income source each time you're paid.
+                        {paycheckMonthLabel && ` This one counts toward ${paycheckMonthLabel}'s take-home.`}
+                      </p>
+                }
                   </section>
 
                   <DeductionEditor
@@ -325,14 +426,18 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
                     <div className="flex items-baseline justify-between">
                       <div>
                         <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-subtle">
-                          Take-home per period
+                          {payType === 'hourly' ? 'Take-home this paycheck' : 'Take-home per period'}
                         </p>
                         <p className="tabular text-3xl font-bold tracking-[-0.03em] text-ink">
                           {formatCurrency(netValue)}
                         </p>
                       </div>
                       <p className="tabular text-xs text-muted">
-                        {formatCurrency(monthly, false)} / month
+                        {monthly !== null ?
+                    `${formatCurrency(monthly, false)} / month` :
+                    paycheckMonthLabel ?
+                    `Counts toward ${paycheckMonthLabel}` :
+                    'Not counted toward monthly take-home yet'}
                       </p>
                     </div>
 
@@ -363,7 +468,7 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
                   
                     </div>
 
-                    {retirementTotal > 0 &&
+                    {retirementTotal > 0 && payType === 'salaried' &&
                 <p className="mt-3 rounded-control bg-savings/8 px-3 py-2 text-[11px] leading-relaxed text-ink">
                         <span className="font-semibold">
                           {formatCurrency(retirementTotal)} per paycheck
@@ -371,6 +476,16 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
                         is tagged Retirement/Savings. It posts as a Savings entry marked{' '}
                         <span className="font-medium">Auto · from paycheck</span> — counted in your
                         total savings rate, not against take-home.
+                      </p>
+                }
+                    {retirementTotal > 0 && payType === 'hourly' &&
+                <p className="mt-3 rounded-control bg-savings/8 px-3 py-2 text-[11px] leading-relaxed text-ink">
+                        <span className="font-semibold">
+                          {formatCurrency(retirementTotal)} per paycheck
+                        </span>{' '}
+                        is tagged Retirement/Savings, but with no fixed schedule this won&rsquo;t
+                        auto-post as a Savings entry — log it as a manual entry if you want it
+                        tracked.
                       </p>
                 }
                   </section>
@@ -396,6 +511,7 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
                   </button>
                 </div>
               </>
+          }
           </motion.div>
         </motion.div>
       }

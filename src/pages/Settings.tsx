@@ -21,8 +21,9 @@ import {
   retirementDeductions,
   sumAmounts } from
 '../utils/income';
-import { totalOf } from '../utils/rollups';
+import { monthLabel, totalOf } from '../utils/rollups';
 import { IncomeSourceSheet } from '../components/income/IncomeSourceSheet';
+import { MonthPicker } from '../components/MonthPicker';
 
 interface SettingsProps {
   onSignIn: () => void;
@@ -39,7 +40,9 @@ export function Settings({ onSignIn }: SettingsProps) {
     inviteMember,
     removeMember,
     setViewId,
-    selectedMonth
+    months,
+    selectedMonth,
+    setSelectedMonth
   } = useBudget();
   const [sheet, setSheet] = useState<{open: boolean;source: IncomeSource | null;}>({
     open: false,
@@ -73,6 +76,13 @@ export function Settings({ onSignIn }: SettingsProps) {
   // so the two numbers never disagree.
   const autoSavings = totalOf(generateAutoEntries(incomeSources, activeCategories, selectedMonth));
 
+  // Salaried income isn't tied to a month — always show it. Hourly income is
+  // one paycheck per entry, so only show the ones received in the viewed
+  // month, or the list balloons as paychecks pile up.
+  const visibleIncomeSources = incomeSources.filter(
+    (s) => s.payType === 'salaried' || s.paycheckDate?.slice(0, 7) === selectedMonth
+  );
+
   return (
     <div className="space-y-3">
       <header>
@@ -83,23 +93,27 @@ export function Settings({ onSignIn }: SettingsProps) {
       </header>
 
       <section className="rounded-card border border-line bg-surface">
-        <div className="border-b border-line px-4 py-3">
-          <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-subtle">
-            Monthly take-home
-          </p>
-          <p className="tabular text-2xl font-bold tracking-[-0.03em] text-ink">
-            {formatCurrency(takeHome, false)}
-          </p>
-          {autoSavings > 0 &&
-          <p className="mt-1 text-xs text-muted">
-              Already excludes {formatCurrency(autoSavings, false)}/mo sent to savings automatically
+        <div className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-subtle">
+              Monthly take-home
             </p>
-          }
+            <p className="tabular text-2xl font-bold tracking-[-0.03em] text-ink">
+              {formatCurrency(takeHome, false)}
+            </p>
+            {autoSavings > 0 &&
+            <p className="mt-1 text-xs text-muted">
+                Already excludes {formatCurrency(autoSavings, false)}/mo sent to savings
+                automatically
+              </p>
+            }
+          </div>
+          <MonthPicker months={months} value={selectedMonth} onChange={setSelectedMonth} />
         </div>
 
         <ul className="divide-y divide-line">
-          {incomeSources.map((source) => {
-            const meta = frequencyMeta(source.frequency);
+          {visibleIncomeSources.map((source) => {
+            const meta = source.frequency ? frequencyMeta(source.frequency) : null;
             const retirement = sumAmounts(retirementDeductions(source));
             return (
               <li key={source.id}>
@@ -107,7 +121,7 @@ export function Settings({ onSignIn }: SettingsProps) {
                   type="button"
                   onClick={() => setSheet({ open: true, source })}
                   className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-canvas">
-                  
+
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-canvas text-muted">
                     <KeyboardIcon className="h-4 w-4" aria-hidden="true" />
                   </span>
@@ -116,13 +130,16 @@ export function Settings({ onSignIn }: SettingsProps) {
                       {source.name}
                     </span>
                     <span className="tabular block truncate text-xs text-muted">
-                      {formatCurrency(netPerPeriod(source))} {meta.short} ·{' '}
-                      {formatCurrency(monthlyNet(source), false)}/mo
+                      {source.payType === 'hourly' ?
+                      `${formatCurrency(netPerPeriod(source))} received ${source.paycheckDate ? format(parseISO(source.paycheckDate), 'MMM d, yyyy') : '—'}` :
+                      `${formatCurrency(netPerPeriod(source))} ${meta?.short} · ${formatCurrency(monthlyNet(source, selectedMonth), false)}/mo`}
                       {retirement > 0 &&
-                      ` · ${formatCurrency(retirement)}/paycheck already went to savings`}
+                      ` · ${formatCurrency(retirement)}${source.payType === 'hourly' ? ' to savings' : '/paycheck already went to savings'}`}
                     </span>
                     <span className="block text-[11px] text-subtle">
-                      Updated {format(parseISO(source.updatedAt), 'MMM d, yyyy')}
+                      {source.payType === 'hourly' ?
+                      `Counted in ${monthLabel(selectedMonth)}'s take-home` :
+                      `Updated ${format(parseISO(source.updatedAt), 'MMM d, yyyy')}`}
                     </span>
                   </span>
                   <ChevronRightIcon className="h-4 w-4 shrink-0 text-subtle" aria-hidden="true" />
@@ -136,6 +153,16 @@ export function Settings({ onSignIn }: SettingsProps) {
               <p className="mx-auto mt-1 max-w-xs text-xs leading-relaxed text-muted">
                 Add a paycheck so &ldquo;left to spend&rdquo; is based on real take-home, not a
                 guess.
+              </p>
+            </li>
+          }
+          {incomeSources.length > 0 && visibleIncomeSources.length === 0 &&
+          <li className="px-4 py-6 text-center">
+              <p className="text-sm font-semibold text-ink">
+                No paychecks logged for {monthLabel(selectedMonth)}
+              </p>
+              <p className="mx-auto mt-1 max-w-xs text-xs leading-relaxed text-muted">
+                Pick a different month, or add the paycheck you received this month.
               </p>
             </li>
           }

@@ -1,5 +1,9 @@
 export type PayFrequency = 'weekly' | 'biweekly' | 'semimonthly' | 'monthly';
 
+/** Salaried has a fixed pay frequency; hourly paychecks vary and get
+ *  entered manually as they come, with no assumed schedule. */
+export type PayType = 'salaried' | 'hourly';
+
 /**
  * What matters is whether the money ever became spendable cash —
  * not Roth vs. traditional.
@@ -40,8 +44,13 @@ export interface IncomeSource {
   id: string;
   memberId: string;
   name: string;
+  payType: PayType;
   grossPay: number;
-  frequency: PayFrequency;
+  /** Required for salaried; null for hourly (no fixed schedule). */
+  frequency: PayFrequency | null;
+  /** ISO date (yyyy-MM-dd) this paycheck was received — required for
+   *  hourly, null for salaried. Determines which month it counts toward. */
+  paycheckDate: string | null;
   preTax: Deduction[];
   taxes: TaxLine[];
   postTax: Deduction[];
