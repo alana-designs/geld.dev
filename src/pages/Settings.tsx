@@ -7,6 +7,7 @@ import {
   LogOutIcon,
   MailIcon,
   PlusIcon,
+  SparklesIcon,
   UserPlusIcon,
   XIcon } from
 'lucide-react';
@@ -24,6 +25,8 @@ import {
 import { monthLabel, totalOf } from '../utils/rollups';
 import { IncomeSourceSheet } from '../components/income/IncomeSourceSheet';
 import { MonthPicker } from '../components/MonthPicker';
+import { ChangelogModal } from '../components/changelog/ChangelogModal';
+import { latestRelease } from '../data/changelog';
 
 interface SettingsProps {
   onSignIn: () => void;
@@ -50,6 +53,7 @@ export function Settings({ onSignIn }: SettingsProps) {
   });
   const [invite, setInvite] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [changelogOpen, setChangelogOpen] = useState(false);
 
   const sendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +89,27 @@ export function Settings({ onSignIn }: SettingsProps) {
 
   return (
     <div className="space-y-3">
+      <section className="overflow-hidden rounded-card border border-line bg-surface">
+        <button
+          type="button"
+          onClick={() => setChangelogOpen(true)}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-canvas">
+
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-canvas text-muted">
+            <SparklesIcon className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-medium tracking-[-0.01em] text-ink">
+              What&rsquo;s new in Geld
+            </span>
+            <span className="block truncate text-xs text-muted">
+              {latestRelease ? `v${latestRelease.version} · ${latestRelease.title}` : 'Nothing published yet'}
+            </span>
+          </span>
+          <ChevronRightIcon className="h-4 w-4 shrink-0 text-subtle" aria-hidden="true" />
+        </button>
+      </section>
+
       <header>
         <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-subtle">
           Income · household · account
@@ -306,7 +331,7 @@ export function Settings({ onSignIn }: SettingsProps) {
         open={sheet.open}
         source={sheet.source}
         onClose={() => setSheet({ open: false, source: null })} />
-      
+      <ChangelogModal open={changelogOpen} onClose={() => setChangelogOpen(false)} />
     </div>);
 
 }

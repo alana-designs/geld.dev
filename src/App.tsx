@@ -56,7 +56,7 @@ function Shell() {
 
       <div className="sticky top-0 z-20 border-b border-line bg-canvas/90 backdrop-blur lg:hidden">
         <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-2.5">
-          <span className="text-sm font-bold tracking-[-0.03em] text-ink">Expense Tracker</span>
+          <span className="text-sm font-bold tracking-[-0.03em] text-ink">Geld</span>
           <button
             type="button"
             onClick={() => setAuthOpen(true)}
