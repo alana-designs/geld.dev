@@ -45,7 +45,11 @@ export function WhatsNewCard({ onOpen, unread }: WhatsNewCardProps) {
 
         </span>
 
-        <span className="mt-1 block text-[11px] leading-relaxed text-muted">
+        {/* Clamped to two lines so a long summary can't push the rail's other
+            content off-screen — the full text is one click away in the modal.
+            No `block` here: line-clamp sets its own display, and the two
+            utilities would otherwise race on source order. */}
+        <span className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-muted">
           {latestRelease?.summary ?? 'Check back as new features ship.'}
         </span>
       </span>
