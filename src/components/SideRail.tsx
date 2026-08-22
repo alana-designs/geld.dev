@@ -32,7 +32,7 @@ export function SideRail({ onAccount }: SideRailProps) {
         <span className="text-sm font-bold tracking-[-0.03em] text-ink">Geld</span>
       </div>
 
-      <nav className="flex-1 space-y-0.5 px-3 py-4">
+      <nav className="space-y-0.5 px-3 py-4">
         {items.map(({ to, label, Icon, end }) =>
         <NavLink
           key={to}
@@ -57,7 +57,11 @@ export function SideRail({ onAccount }: SideRailProps) {
         )}
       </nav>
 
-      <div className="p-3">
+      {/* mt-auto is what pins this to the bottom: it eats the rail's slack so
+          the card always sits directly above the account row, at any height.
+          Previously that only happened as a side effect of nav's flex-1
+          absorbing the space, which made the anchoring implicit and fragile. */}
+      <div className="mt-auto p-3">
         <WhatsNewCard
           unread={unread}
           onOpen={() => {
