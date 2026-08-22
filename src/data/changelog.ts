@@ -16,16 +16,15 @@ export const releases: ReleaseNote[] = [
   id: 'r-2026-08-22',
   version: '1.0',
   date: '2026-08-22',
-  title: 'Household invites, and budget bars that compare fairly',
+  title: 'Top 5 categories & two-way household invites',
   summary:
-  'Adding someone to your household now takes a yes from both sides, and you can leave or remove a member whenever you want. On the dashboard, each spending line is measured against its own goal.',
+  'Your top 5 spending habits for the month now show up on your dashboard in a new widget. Adding someone to your household now takes a yes from both sides, and you can leave or remove a member whenever you want.',
   image: '/changelog/household-and-budget-bars.svg',
   items: [
+  'Lines over budget turn red in the bar itself, not just in the text beside it.',
   'Invites need both people to agree: they accept, then you confirm their email address before anything is shared.',
   'Invites expire after an hour, so a mistyped address can\u2019t be claimed later on.',
-  'You can leave a household, or remove someone from yours. Entries go with whoever logged them \u2014 nothing is deleted.',
-  '\u201CWhere it\u2019s going\u201D now measures each line against its own goal, so a small category that\u2019s over budget stands out as much as a big one.',
-  'Lines over budget turn red in the bar itself, not just in the text beside it.']
+  'You can leave a household or remove someone from yours. Entries stay with the account that logged them \u2014 nothing is deleted.',]
 
 }];
 

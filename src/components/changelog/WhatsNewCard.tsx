@@ -36,7 +36,7 @@ export function WhatsNewCard({ onOpen, unread }: WhatsNewCardProps) {
         </span>
 
         <span className="mt-1 flex items-start justify-between gap-2">
-          <span className="text-[13px] font-semibold leading-snug tracking-[-0.01em] text-ink">
+          <span className="line-clamp-2 min-w-0 text-[13px] font-semibold leading-snug tracking-[-0.01em] text-ink">
             {latestRelease?.title ?? 'Nothing published yet'}
           </span>
           <ArrowUpRightIcon
