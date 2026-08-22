@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #c1743c; } a:hover { color: #a3562f; }
+  </style>
+</helmet>
+<div style="position: relative; width: 560px; min-height: 560px; box-sizing: border-box; background: #a1a09d; display: flex; align-items: center; justify-content: center; padding: 32px 56px; font-family: Inter, system-ui, sans-serif;">
+  <div style="position: relative; width: 448px; box-sizing: border-box; background: #ffffff; border: 1px solid #eceae5; border-radius: 16px; padding: 24px;">
+
+    <div style="position: absolute; right: 16px; top: 16px; color: #a39d94; line-height: 0;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </div>
+
+    <div style="width: 44px; height: 44px; border-radius: 999px; background: rgba(177,70,45,0.10); color: #b1462d; display: flex; align-items: center; justify-content: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+    </div>
+
+    <h2 style="margin: 16px 0 0; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; color: #1c1a17;">Leave Alana&rsquo;s household?</h2>
+    <p style="margin: 6px 0 0; font-size: 14px; line-height: 1.625; color: #6f6a62;">You&rsquo;ll go back to a household of your own. Your history isn&rsquo;t deleted &mdash; it comes with you.</p>
+
+    <div style="margin-top: 18px; border-top: 1px solid #eceae5; padding-top: 16px; display: flex; flex-direction: column; gap: 10px;">
+
+      <div style="display: flex; gap: 10px; align-items: flex-start;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6f7a4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M20 6 9 17l-5-5"/></svg>
+        <div style="font-size: 13px; line-height: 1.6; color: #6f6a62;"><span style="color: #1c1a17; font-weight: 500;">38 entries</span>, your categories and your income move out with you.</div>
+      </div>
+
+      <div style="display: flex; gap: 10px; align-items: flex-start;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6f7a4a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M20 6 9 17l-5-5"/></svg>
+        <div style="font-size: 13px; line-height: 1.6; color: #6f6a62;">Alana stops seeing your spending and paycheck details immediately.</div>
+      </div>
+
+      <div style="display: flex; gap: 10px; align-items: flex-start;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b1462d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        <div style="font-size: 13px; line-height: 1.6; color: #6f6a62;">You lose the shared view of hers, and the household totals on your dashboard.</div>
+      </div>
+
+      <div style="display: flex; gap: 10px; align-items: flex-start;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a39d94" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+        <div style="font-size: 13px; line-height: 1.6; color: #6f6a62;">Getting back in needs a fresh invite from Alana, confirmed the same way.</div>
+      </div>
+
+    </div>
+
+    <div style="display: flex; gap: 8px; margin-top: 18px;">
+      <button style="flex-grow: 1; border: 1px solid #eceae5; background: #ffffff; border-radius: 12px; padding: 12px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #1c1a17; cursor: pointer;">Stay</button>
+      <button style="flex-grow: 1; border: none; background: #b1462d; border-radius: 12px; padding: 12px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #ffffff; cursor: pointer;">Leave household</button>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

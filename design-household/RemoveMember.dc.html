@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #c1743c; } a:hover { color: #a3562f; }
+  </style>
+</helmet>
+<div style="position: relative; width: 560px; min-height: 540px; box-sizing: border-box; background: #a1a09d; display: flex; align-items: center; justify-content: center; padding: 32px 56px; font-family: Inter, system-ui, sans-serif;">
+  <div style="position: relative; width: 448px; box-sizing: border-box; background: #ffffff; border: 1px solid #eceae5; border-radius: 16px; padding: 24px;">
+
+    <div style="position: absolute; right: 16px; top: 16px; color: #a39d94; line-height: 0;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </div>
+
+    <div style="width: 44px; height: 44px; border-radius: 999px; background: rgba(177,70,45,0.10); color: #b1462d; display: flex; align-items: center; justify-content: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
+    </div>
+
+    <h2 style="margin: 16px 0 0; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; color: #1c1a17;">Remove Jordan?</h2>
+    <p style="margin: 6px 0 0; font-size: 14px; line-height: 1.625; color: #6f6a62;">They keep everything they logged &mdash; it moves to a household of their own. Nothing of yours is deleted.</p>
+
+    <div style="margin-top: 18px; border: 1px solid #eceae5; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 12px;">
+      <div style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 999px; background: #8c6239; color: #ffffff; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;">J</div>
+      <div style="flex-grow: 1; min-width: 0;">
+        <div style="font-size: 14px; font-weight: 500; color: #1c1a17;">Jordan</div>
+        <div style="margin-top: 1px; font-size: 12px; color: #a39d94;">jordan@example.com &middot; 38 entries</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 16px; border-top: 1px solid #eceae5; padding-top: 16px; display: flex; flex-direction: column; gap: 10px;">
+
+      <div style="display: flex; gap: 10px; align-items: flex-start;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b1462d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        <div style="font-size: 13px; line-height: 1.6; color: #6f6a62;">Jordan stops seeing your entries and paycheck details right away.</div>
+      </div>
+
+      <div style="display: flex; gap: 10px; align-items: flex-start;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#b1462d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        <div style="font-size: 13px; line-height: 1.6; color: #6f6a62;">Their 38 entries leave your household totals, including past months.</div>
+      </div>
+
+      <div style="display: flex; gap: 10px; align-items: flex-start;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a39d94" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+        <div style="font-size: 13px; line-height: 1.6; color: #6f6a62;">They aren&rsquo;t notified. Their app simply shows their own household again.</div>
+      </div>
+
+    </div>
+
+    <div style="display: flex; gap: 8px; margin-top: 18px;">
+      <button style="flex-grow: 1; border: 1px solid #eceae5; background: #ffffff; border-radius: 12px; padding: 12px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #1c1a17; cursor: pointer;">Cancel</button>
+      <button style="flex-grow: 1; border: none; background: #b1462d; border-radius: 12px; padding: 12px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #ffffff; cursor: pointer;">Remove Jordan</button>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

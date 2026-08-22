@@ -24,3 +24,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Generated design-canvas payload (re-seeded from the .dc.html sources)
+design-household/household-membership-flows.html

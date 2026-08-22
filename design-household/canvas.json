@@ -1,0 +1,21 @@
+{
+  "pages": [
+    { "id": "handshake", "name": "Invite handshake" },
+    { "id": "exits", "name": "Leaving & removing" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "page": "handshake", "x": 0, "y": 0, "w": 640, "h": 760 },
+    { "file": "InviteSent.dc.html", "page": "handshake", "x": 700, "y": 0, "w": 560, "h": 480 },
+    { "file": "IncomingInvite.dc.html", "page": "handshake", "x": 1320, "y": 0, "w": 560, "h": 600 },
+    { "file": "ConfirmMember.dc.html", "page": "handshake", "x": 1940, "y": 0, "w": 560, "h": 560 },
+    { "file": "InviteExpired.dc.html", "page": "handshake", "x": 700, "y": 540, "w": 560, "h": 420 },
+    { "file": "LeaveHousehold.dc.html", "page": "exits", "x": 0, "y": 0, "w": 560, "h": 560 },
+    { "file": "RemoveMember.dc.html", "page": "exits", "x": 620, "y": 0, "w": 560, "h": 540 }
+  ],
+  "annotations": [
+    { "id": "typo-catch", "page": "handshake", "x": 1940, "y": -130, "w": 560, "text": "The typo catch.\nAlana reads the address that actually accepted. A stranger who claimed a mistyped invite gets declined here, having seen nothing." },
+    { "id": "expiry-note", "page": "handshake", "x": 700, "y": 1000, "w": 560, "text": "At 1 hour this is an edge case, not a routine path — there's room for the magic-link round trip. Kept as a one-tap resend anyway, since the address is usually the thing that was wrong." },
+    { "id": "exits-note", "page": "exits", "x": 0, "y": -110, "w": 560, "text": "Both exits move entries rather than deleting them, and both say plainly what the other person stops seeing." }
+  ],
+  "launch": { "view": "canvas", "page": "handshake" }
+}

@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #c1743c; } a:hover { color: #a3562f; }
+  </style>
+</helmet>
+<div style="position: relative; width: 560px; min-height: 560px; box-sizing: border-box; background: #a1a09d; display: flex; align-items: center; justify-content: center; padding: 32px 56px; font-family: Inter, system-ui, sans-serif;">
+  <div style="position: relative; width: 448px; box-sizing: border-box; background: #ffffff; border: 1px solid #eceae5; border-radius: 16px; padding: 24px;">
+
+    <div style="position: absolute; right: 16px; top: 16px; color: #a39d94; line-height: 0;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </div>
+
+    <div style="width: 44px; height: 44px; border-radius: 999px; background: rgba(193,116,60,0.10); color: #c1743c; display: flex; align-items: center; justify-content: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
+    </div>
+
+    <h2 style="margin: 16px 0 0; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; color: #1c1a17;">Someone accepted your invite</h2>
+    <p style="margin: 6px 0 0; font-size: 14px; line-height: 1.625; color: #6f6a62;">Check this is who you meant to invite. Nothing has been shared yet.</p>
+
+    <div style="margin-top: 18px; border: 1px solid #c1743c; border-radius: 12px; background: rgba(193,116,60,0.05); padding: 16px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="flex-shrink: 0; width: 40px; height: 40px; border-radius: 999px; background: #8c6239; color: #ffffff; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center;">J</div>
+        <div style="flex-grow: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 600; color: #1c1a17;">Jordan</div>
+          <div style="margin-top: 2px; font-size: 14px; font-weight: 500; color: #1c1a17; word-break: break-all;">jordan@example.com</div>
+        </div>
+      </div>
+      <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(193,116,60,0.25); font-size: 12px; line-height: 1.6; color: #6f6a62;">Read the address, not the name &mdash; they chose the name themselves. If it isn&rsquo;t exactly who you invited, decline.</div>
+    </div>
+
+    <div style="margin-top: 16px; font-size: 13px; line-height: 1.6; color: #6f6a62;">Confirming shares your entries, categories and <span style="color: #1c1a17; font-weight: 500;">paycheck details</span> with them, and theirs with you.</div>
+
+    <div style="display: flex; gap: 8px; margin-top: 18px;">
+      <button style="flex-grow: 1; border: 1px solid #eceae5; background: #ffffff; border-radius: 12px; padding: 12px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #b1462d; cursor: pointer;">That&rsquo;s not them</button>
+      <button style="flex-grow: 1; border: none; background: #38352f; border-radius: 12px; padding: 12px 0; font-family: inherit; font-size: 14px; font-weight: 600; color: #ffffff; cursor: pointer;">Confirm and share</button>
+    </div>
+
+    <p style="margin: 14px 0 0; font-size: 11px; line-height: 1.65; color: #a39d94;">Declining cancels the invite and removes their access request. They&rsquo;re never told who you are.</p>
+
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
