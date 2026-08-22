@@ -104,3 +104,18 @@ export function usageByCategory(transactions: Transaction[]): Record<string, num
     return acc;
   }, {});
 }
+
+/** Group month keys (newest-first) by year for export UI. Years are newest-first. */
+export function monthsByYear(months: string[]): Record<string, string[]> {
+  const grouped: Record<string, string[]> = {};
+  months.forEach((key) => {
+    const year = key.slice(0, 4);
+    grouped[year] = grouped[year] ?? [];
+    grouped[year].push(key);
+  });
+  return grouped;
+}
+
+export function yearsFromMonths(months: string[]): string[] {
+  return [...new Set(months.map((key) => key.slice(0, 4)))];
+}
