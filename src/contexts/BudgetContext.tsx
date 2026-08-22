@@ -31,6 +31,34 @@ type InviteRow = Database['public']['Tables']['household_invites']['Row'];
 /** Not a real household row — the "combined view" tab, selected client-side only. */
 export const HOUSEHOLD_VIEW = 'household';
 
+/**
+ * An invite someone else sent to *your* email. You can't read the inviting
+ * household's profiles (you're not in it yet), so these come from the
+ * `my_pending_invites()` RPC, which returns just enough to decide.
+ */
+export interface IncomingInvite {
+  id: string;
+  inviterName: string;
+  inviterEmail: string;
+  householdSize: number;
+  /** ISO timestamp. Invites lapse an hour after they're sent. */
+  expiresAt: string;
+}
+
+/**
+ * Someone who accepted an invite this household sent, waiting on the inviter to
+ * confirm. `acceptedEmail` is the address that actually accepted — the thing
+ * worth reading, since a typo'd invite can be claimed by a stranger and the
+ * display name is theirs to choose.
+ */
+export interface PendingConfirmation {
+  id: string;
+  invitedEmail: string;
+  acceptedName: string;
+  acceptedEmail: string;
+  acceptedAt: string;
+}
+
 const INVITE_COLORS = ['#8c6239', '#6f7a4a', '#93627e', '#a3562f'];
 
 interface NewTransaction {
@@ -74,9 +102,32 @@ interface BudgetContextValue {
   removeMember: (id: string) => Promise<void>;
   memberById: (id: string) => Member | undefined;
 
+  /** Invites addressed to you, from households you're not in yet. */
+  incomingInvites: IncomingInvite[];
+  /** Says yes. Nothing is shared until the inviter confirms your address. */
+  acceptInvite: (inviteId: string) => Promise<void>;
+  declineInvite: (inviteId: string) => Promise<void>;
+
+  /** People waiting on you to confirm them into your household. */
+  pendingConfirmations: PendingConfirmation[];
+  /** Verifies the address that accepted, and moves them in. */
+  confirmMember: (inviteId: string) => Promise<void>;
+  /** Rejects the person who accepted — used when the address isn't who you meant. */
+  rejectMember: (inviteId: string) => Promise<void>;
+
+  /** You accepted an invite and are waiting on the inviter to confirm your address. */
+  awaitingConfirmation: boolean;
+
+  /** Moves you and your entries out into a household of your own. */
+  leaveHousehold: () => Promise<void>;
+
   /** Scoped to whichever tab is selected */
   categories: Category[];
   transactions: Transaction[];
+  /** Full household data — for export and other cross-member operations */
+  allCategories: Category[];
+  allTransactions: Transaction[];
+  allIncomeSources: IncomeSource[];
   takeHome: number;
   autoEntriesFor: (monthKey: string) => Transaction[];
   recurringEntriesFor: (monthKey: string) => Transaction[];
@@ -203,6 +254,12 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [invites, setInvites] = useState<InviteRow[]>([]);
+  const [incomingInvites, setIncomingInvites] = useState<IncomingInvite[]>([]);
+  const [pendingConfirmations, setPendingConfirmations] = useState<PendingConfirmation[]>([]);
+  /** You accepted an invite and are waiting on the inviter to confirm your address. */
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
+  /** Bumped after joining a household, to re-run the load effect from scratch. */
+  const [reloadKey, setReloadKey] = useState(0);
   const [rawCategories, setRawCategories] = useState<CategoryRow[]>([]);
   const [rawGoals, setRawGoals] = useState<CategoryGoalRow[]>([]);
   const [rawTransactions, setRawTransactions] = useState<TransactionRow[]>([]);
@@ -217,6 +274,9 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     setProfile(null);
     setProfiles([]);
     setInvites([]);
+    setIncomingInvites([]);
+    setPendingConfirmations([]);
+    setAwaitingConfirmation(false);
     setRawCategories([]);
     setRawGoals([]);
     setRawTransactions([]);
@@ -255,12 +315,25 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     setLoading(true);
 
     (async () => {
-      const { data: me, error: meError } = await supabase.
+      // maybeSingle, not single: a missing profile is a recoverable state, not
+      // an error. handle_new_user() only fires on INSERT into auth.users, so an
+      // account whose profile row was removed never gets one back on its own --
+      // ensure_profile() creates a fresh household of one rather than leaving
+      // the app stuck on a blank screen.
+      let { data: me, error: meError } = await supabase.
       from('profiles').
       select('*').
       eq('id', userId).
-      single();
+      maybeSingle();
       if (!active) return;
+
+      if (!meError && !me) {
+        const healed = await supabase.rpc('ensure_profile').single();
+        if (!active) return;
+        me = healed.data;
+        meError = healed.error;
+      }
+
       if (meError || !me) {
         console.error(meError);
         setLoading(false);
@@ -268,16 +341,24 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
       }
       setProfile(me);
 
-      const [profilesRes, invitesRes, categoriesRes] = await Promise.all([
+      const [profilesRes, invitesRes, categoriesRes, incomingRes, confirmRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('household_id', me.household_id),
+      // RLS returns this household's own invites plus any addressed to my email,
+      // so one query covers both the outgoing list and my own waiting-to-be-
+      // confirmed row. Split by household_id below.
       supabase.
       from('household_invites').
       select('*').
-      eq('household_id', me.household_id).
-      eq('status', 'pending'),
-      supabase.from('categories').select('*').eq('household_id', me.household_id)]
+      in('status', ['pending', 'accepted']),
+      supabase.from('categories').select('*').eq('household_id', me.household_id),
+      supabase.rpc('my_pending_invites'),
+      supabase.rpc('pending_member_confirmations')]
       );
       if (!active) return;
+      // A failed invite lookup shouldn't block the whole app from loading —
+      // worst case you don't see a pending invite until the next refresh.
+      if (incomingRes.error) console.error(incomingRes.error);
+      if (confirmRes.error) console.error(confirmRes.error);
       const firstError = profilesRes.error || invitesRes.error || categoriesRes.error;
       if (firstError) {
         console.error(firstError);
@@ -338,7 +419,29 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
       if (thirdError) console.error(thirdError);
 
       setProfiles(profilesRes.data ?? []);
-      setInvites(invitesRes.data ?? []);
+      const allInvites = invitesRes.data ?? [];
+      setInvites(allInvites.filter((i) => i.household_id === me.household_id && i.status === 'pending'));
+      setAwaitingConfirmation(
+        allInvites.some((i) => i.household_id !== me.household_id && i.status === 'accepted')
+      );
+      setIncomingInvites(
+        (incomingRes.data ?? []).map((row) => ({
+          id: row.invite_id,
+          inviterName: row.inviter_name,
+          inviterEmail: row.inviter_email,
+          householdSize: Number(row.household_size),
+          expiresAt: row.expires_at
+        }))
+      );
+      setPendingConfirmations(
+        (confirmRes.data ?? []).map((row) => ({
+          id: row.invite_id,
+          invitedEmail: row.invited_email,
+          acceptedName: row.accepted_name,
+          acceptedEmail: row.accepted_email,
+          acceptedAt: row.accepted_at
+        }))
+      );
       setRawCategories(categories);
       setRawGoals(goalsRes.data ?? []);
       setRawTransactions(txRes.data ?? []);
@@ -352,7 +455,7 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     return () => {
       active = false;
     };
-  }, [session?.user?.id]);
+  }, [session?.user?.id, reloadKey]);
 
   const user: AuthUser | null = session?.user?.email ? { email: session.user.email } : null;
   const selfId = profile?.id ?? null;
@@ -412,49 +515,88 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
   const inviteMember = useCallback(
     async (email: string, name?: string) => {
       if (!profile) return;
-      const color = INVITE_COLORS[(profiles.length + invites.length) % INVITE_COLORS.length];
+      // expires_at is set server-side — a client that could write it could put
+      // it far enough ahead to make the 1-hour window meaningless.
       const { data, error } = await supabase.
-      from('household_invites').
-      insert({
-        household_id: profile.household_id,
-        invited_by: profile.id,
-        email: email.trim(),
-        name: name?.trim() || null,
-        color
-      }).
-      select().
+      rpc('send_household_invite', { p_email: email.trim(), p_name: name?.trim() || null }).
       single();
       if (error) {
         throw new Error(
           error.code === '23505' ?
           "That person's already been invited." :
-          'Could not send the invite — try again.'
+          error.message || 'Could not send the invite — try again.'
         );
       }
       setInvites((prev) => [...prev, data]);
     },
-    [profile, profiles.length, invites.length]
+    [profile]
   );
 
   const removeMember = useCallback(
     async (id: string) => {
       if (!profile) return;
+
       const pending = invites.find((i) => i.id === id);
-      if (!pending) return; // Removing an active household member isn't supported yet.
-      const { error } = await supabase.
-      from('household_invites').
-      delete().
-      eq('id', id).
-      eq('household_id', profile.household_id);
-      if (error) {
-        console.error(error);
+      if (pending) {
+        const { error } = await supabase.
+        from('household_invites').
+        delete().
+        eq('id', id).
+        eq('household_id', profile.household_id);
+        if (error) throw error;
+        setInvites((prev) => prev.filter((i) => i.id !== id));
+        setViewId((current) => current === id ? profile.id : current);
         return;
       }
-      setInvites((prev) => prev.filter((i) => i.id !== id));
+
+      // An active member: they and their entries move out to a household of
+      // their own, rather than anything being deleted.
+      const { error } = await supabase.rpc('remove_household_member', { p_user_id: id });
+      if (error) throw new Error(error.message);
       setViewId((current) => current === id ? profile.id : current);
+      setReloadKey((k) => k + 1);
     },
     [profile, invites]
   );
+
+  // household_id isn't writable from the client (migration 0005), so every
+  // membership change goes through a security-definer function.
+
+  // Accepting records intent only — nothing moves and nothing is shared until
+  // the inviter confirms the address that accepted (migration 0008).
+  const acceptInvite = useCallback(async (inviteId: string) => {
+    const { error } = await supabase.rpc('accept_household_invite', { p_invite_id: inviteId });
+    if (error) throw new Error(error.message);
+    setIncomingInvites((prev) => prev.filter((i) => i.id !== inviteId));
+    setAwaitingConfirmation(true);
+  }, []);
+
+  const declineInvite = useCallback(async (inviteId: string) => {
+    const { error } = await supabase.from('household_invites').delete().eq('id', inviteId);
+    if (error) throw error;
+    setIncomingInvites((prev) => prev.filter((i) => i.id !== inviteId));
+  }, []);
+
+  // The step that actually shares: the inviter has read the address back.
+  const confirmMember = useCallback(async (inviteId: string) => {
+    const { error } = await supabase.rpc('confirm_household_member', { p_invite_id: inviteId });
+    if (error) throw new Error(error.message);
+    setPendingConfirmations((prev) => prev.filter((c) => c.id !== inviteId));
+    setReloadKey((k) => k + 1);
+  }, []);
+
+  const rejectMember = useCallback(async (inviteId: string) => {
+    const { error } = await supabase.rpc('decline_household_member', { p_invite_id: inviteId });
+    if (error) throw new Error(error.message);
+    setPendingConfirmations((prev) => prev.filter((c) => c.id !== inviteId));
+  }, []);
+
+  const leaveHousehold = useCallback(async () => {
+    const { error } = await supabase.rpc('leave_household');
+    if (error) throw new Error(error.message);
+    setViewId('');
+    setReloadKey((k) => k + 1);
+  }, []);
 
   const memberById = useCallback((id: string) => members.find((m) => m.id === id), [members]);
 
@@ -870,8 +1012,19 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
       inviteMember,
       removeMember,
       memberById,
+      incomingInvites,
+      acceptInvite,
+      declineInvite,
+      pendingConfirmations,
+      confirmMember,
+      rejectMember,
+      awaitingConfirmation,
+      leaveHousehold,
       categories: viewCategories,
       transactions: viewTransactions,
+      allCategories: categories,
+      allTransactions: transactions,
+      allIncomeSources,
       takeHome,
       autoEntriesFor,
       recurringEntriesFor,
@@ -912,8 +1065,19 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     inviteMember,
     removeMember,
     memberById,
+    incomingInvites,
+    acceptInvite,
+    declineInvite,
+    pendingConfirmations,
+    confirmMember,
+    rejectMember,
+    awaitingConfirmation,
+    leaveHousehold,
     viewCategories,
     viewTransactions,
+    categories,
+    transactions,
+    allIncomeSources,
     takeHome,
     autoEntriesFor,
     recurringEntriesFor,

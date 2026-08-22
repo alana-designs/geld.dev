@@ -26,6 +26,9 @@ import { monthLabel, totalOf } from '../utils/rollups';
 import { IncomeSourceSheet } from '../components/income/IncomeSourceSheet';
 import { MonthPicker } from '../components/MonthPicker';
 import { ChangelogModal } from '../components/changelog/ChangelogModal';
+import { IncomingInviteCard } from '../components/IncomingInviteCard';
+import { ConfirmMemberCard } from '../components/ConfirmMemberCard';
+import { MembershipConfirmModal, MembershipAction } from '../components/MembershipConfirmModal';
 import { latestRelease } from '../data/changelog';
 
 interface SettingsProps {
@@ -40,6 +43,13 @@ export function Settings({ onSignIn }: SettingsProps) {
     activeCategories,
     takeHome,
     members,
+    activeMembers,
+    incomingInvites,
+    pendingConfirmations,
+    awaitingConfirmation,
+    leaveHousehold,
+    allTransactions,
+    selfId,
     inviteMember,
     removeMember,
     setViewId,
@@ -54,6 +64,13 @@ export function Settings({ onSignIn }: SettingsProps) {
   const [invite, setInvite] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [changelogOpen, setChangelogOpen] = useState(false);
+  const [membershipAction, setMembershipAction] = useState<MembershipAction | null>(null);
+
+  const entriesFor = (memberId: string) =>
+  allTransactions.filter((tx) => tx.memberId === memberId).length;
+
+  const self = members.find((m) => m.isSelf);
+  const housemates = activeMembers.filter((m) => !m.isSelf);
 
   const sendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -203,6 +220,24 @@ export function Settings({ onSignIn }: SettingsProps) {
         </button>
       </section>
 
+      {incomingInvites.map((incoming) =>
+      <IncomingInviteCard key={incoming.id} invite={incoming} />
+      )}
+
+      {pendingConfirmations.map((request) =>
+      <ConfirmMemberCard key={request.id} request={request} />
+      )}
+
+      {awaitingConfirmation &&
+      <section className="rounded-card border border-line bg-surface px-4 py-3">
+          <h2 className="text-sm font-semibold tracking-[-0.01em] text-ink">Waiting to be confirmed</h2>
+          <p className="mt-1 text-[11px] leading-relaxed text-muted">
+            You accepted an invite. The person who sent it has to confirm your email address before
+            anything is shared &mdash; until then nothing of yours is visible to them.
+          </p>
+        </section>
+      }
+
       <section className="overflow-hidden rounded-card border border-line bg-surface">
         <div className="border-b border-line px-4 py-2.5">
           <h2 className="text-sm font-semibold tracking-[-0.01em] text-ink">Household</h2>
@@ -254,8 +289,18 @@ export function Settings({ onSignIn }: SettingsProps) {
               {!member.isSelf &&
             <button
               type="button"
-              onClick={() => removeMember(member.id)}
-              aria-label={`Remove ${member.name}`}
+              onClick={() => {
+                if (member.status === 'pending') {
+                  removeMember(member.id);
+                } else {
+                  setMembershipAction({
+                    kind: 'remove',
+                    member,
+                    entryCount: entriesFor(member.id)
+                  });
+                }
+              }}
+              aria-label={member.status === 'pending' ? `Cancel invite to ${member.name}` : `Remove ${member.name}`}
               className="shrink-0 rounded-full p-1.5 text-subtle transition-colors hover:bg-canvas hover:text-alert">
               
                   <XIcon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -291,10 +336,33 @@ export function Settings({ onSignIn }: SettingsProps) {
           </div>
           {error && <p className="mt-1.5 text-[11px] text-alert">{error}</p>}
           <p className="mt-1.5 text-[11px] leading-relaxed text-subtle">
-            They&rsquo;ll get an email link, set up their own paycheck and categories, then their
-            tab appears next to yours.
+            They&rsquo;ll be asked to accept, then you confirm their address before anything is
+            shared. Invites run out after an hour.
           </p>
         </form>
+
+        {housemates.length > 0 &&
+        <div className="border-t border-line p-3">
+            <button
+            type="button"
+            onClick={() =>
+            setMembershipAction({
+              kind: 'leave',
+              householdName:
+              housemates.length === 1 ? `${housemates[0].name}'s household` : 'this household',
+              entryCount: selfId ? entriesFor(selfId) : 0
+            })
+            }
+            className="flex w-full items-center justify-center gap-2 rounded-control border border-line py-2.5 text-xs font-semibold text-alert transition-colors hover:bg-canvas">
+
+              <LogOutIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              Leave this household
+            </button>
+            <p className="mt-1.5 text-center text-[11px] leading-relaxed text-subtle">
+              Your entries come with you.
+            </p>
+          </div>
+        }
       </section>
 
       <section className="rounded-card border border-line bg-surface p-4">
@@ -332,6 +400,15 @@ export function Settings({ onSignIn }: SettingsProps) {
         source={sheet.source}
         onClose={() => setSheet({ open: false, source: null })} />
       <ChangelogModal open={changelogOpen} onClose={() => setChangelogOpen(false)} />
+      <MembershipConfirmModal
+        action={membershipAction}
+        onClose={() => setMembershipAction(null)}
+        onConfirm={async () => {
+          if (!membershipAction) return;
+          if (membershipAction.kind === 'leave') await leaveHousehold();
+          else await removeMember(membershipAction.member.id);
+        }} />
+
     </div>);
 
 }
