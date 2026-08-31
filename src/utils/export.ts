@@ -1,7 +1,5 @@
 import * as XLSX from 'xlsx';
 import { Category, Member, Transaction } from '../types/budget';
-import { IncomeSource } from '../types/income';
-import { generateAutoEntries } from './income';
 import { generateRecurringEntries } from './recurring';
 import { inMonth, monthLabel } from './rollups';
 
@@ -22,7 +20,9 @@ export interface ExportInput {
   memberIds: string[];
   transactions: Transaction[];
   categories: Category[];
-  incomeSources: IncomeSource[];
+  /** Payroll savings rows, generated server-side and kept out of
+   *  `transactions` — pass BudgetContext's `allAutoEntries`. */
+  autoEntries: Transaction[];
   memberById: (id: string) => Member | undefined;
 }
 
@@ -50,7 +50,7 @@ export function buildExportRows(input: ExportInput): ExportRow[] {
     memberIds,
     transactions,
     categories,
-    incomeSources,
+    autoEntries,
     memberById
   } = input;
   const memberSet = new Set(memberIds);
@@ -60,10 +60,9 @@ export function buildExportRows(input: ExportInput): ExportRow[] {
   monthKeys.forEach((monthKey) => {
     memberIds.forEach((memberId) => {
       const memberTransactions = transactions.filter((tx) => tx.memberId === memberId);
-      const memberIncome = incomeSources.filter((s) => s.memberId === memberId);
       const manual = inMonth(memberTransactions, monthKey);
       const recurring = generateRecurringEntries(memberTransactions, monthKey);
-      const auto = generateAutoEntries(memberIncome, categories, monthKey);
+      const auto = inMonth(autoEntries.filter((tx) => tx.memberId === memberId), monthKey);
       const entries = [...manual, ...recurring, ...auto].filter((tx) => memberSet.has(tx.memberId));
 
       entries.forEach((tx) => {

@@ -16,7 +16,6 @@ import { IncomeSource } from '../types/income';
 import { formatCurrency } from '../utils/format';
 import {
   frequencyMeta,
-  generateAutoEntries,
   monthlyNet,
   netPerPeriod,
   retirementDeductions,
@@ -40,7 +39,7 @@ export function Settings({ onSignIn }: SettingsProps) {
     user,
     signOut,
     incomeSources,
-    activeCategories,
+    myAutoEntriesFor,
     takeHome,
     members,
     activeMembers,
@@ -92,10 +91,9 @@ export function Settings({ onSignIn }: SettingsProps) {
     }
   };
 
-  // Same source of truth as the Dashboard's "Total savings rate" — actual
-  // dated auto-entries for the selected month, not a flat per-year average,
-  // so the two numbers never disagree.
-  const autoSavings = totalOf(generateAutoEntries(incomeSources, activeCategories, selectedMonth));
+  // Same source of truth as the Dashboard's "Total savings rate" — the actual
+  // payroll entries posted for the selected month, so the two never disagree.
+  const autoSavings = totalOf(myAutoEntriesFor(selectedMonth));
 
   // Salaried income isn't tied to a month — always show it. Hourly income is
   // one paycheck per entry, so only show the ones received in the viewed

@@ -5,6 +5,8 @@
 export type ParentCategory = 'Needs' | 'Wants' | 'Savings';
 export type PayFrequency = 'weekly' | 'biweekly' | 'semimonthly' | 'monthly';
 export type PayType = 'salaried' | 'hourly';
+export type SemimonthlySchedule = '1st_15th' | '15th_last';
+export type TransactionSource = 'manual' | 'auto';
 export type DeductionPhase = 'pre_tax' | 'post_tax';
 export type DeductionTag = 'retirement' | 'other';
 /** pending: sent · accepted: invitee said yes, nothing shared yet · confirmed: inviter verified, member joined */
@@ -132,6 +134,8 @@ export interface Database {
           description: string;
           date: string;
           recurring: boolean;
+          source: TransactionSource;
+          income_deduction_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -164,6 +168,7 @@ export interface Database {
           gross_pay: number;
           frequency: PayFrequency | null;
           paycheck_date: string | null;
+          semimonthly_schedule: SemimonthlySchedule | null;
           net_override: number | null;
           updated_at: string;
         };
@@ -176,6 +181,7 @@ export interface Database {
           gross_pay: number;
           frequency?: PayFrequency | null;
           paycheck_date?: string | null;
+          semimonthly_schedule?: SemimonthlySchedule | null;
           net_override?: number | null;
           updated_at?: string;
         };
@@ -185,6 +191,7 @@ export interface Database {
           gross_pay?: number;
           frequency?: PayFrequency | null;
           paycheck_date?: string | null;
+          semimonthly_schedule?: SemimonthlySchedule | null;
           net_override?: number | null;
           updated_at?: string;
         };

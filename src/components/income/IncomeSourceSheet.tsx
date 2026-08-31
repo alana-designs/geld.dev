@@ -8,6 +8,7 @@ import {
   IncomeSource,
   PayFrequency,
   PayType,
+  SemimonthlySchedule,
   TaxDraft } from
 '../../types/income';
 import { FREQUENCIES, frequencyMeta, sumAmounts } from '../../utils/income';
@@ -25,6 +26,11 @@ type Stage = 'payType' | 'form';
 
 const uid = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
 const today = () => format(new Date(), 'yyyy-MM-dd');
+
+const SEMIMONTHLY_OPTIONS: {value: SemimonthlySchedule;label: string;}[] = [
+{ value: '1st_15th', label: '1st & 15th' },
+{ value: '15th_last', label: '15th & last day' }];
+
 
 const defaultDeductions = (savingsCategoryId: string | undefined) => ({
   preTax: [
@@ -51,6 +57,7 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
   const [name, setName] = useState('');
   const [gross, setGross] = useState('');
   const [frequency, setFrequency] = useState<PayFrequency>('biweekly');
+  const [semimonthlySchedule, setSemimonthlySchedule] = useState<SemimonthlySchedule>('1st_15th');
   const [paycheckDate, setPaycheckDate] = useState(today);
   const [preTax, setPreTax] = useState<DeductionDraft[]>([]);
   const [taxes, setTaxes] = useState<TaxDraft[]>([]);
@@ -70,6 +77,7 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
       setName(source.name);
       setGross(toAmountInput(source.grossPay));
       setFrequency(source.frequency ?? 'biweekly');
+      setSemimonthlySchedule(source.semimonthlySchedule ?? '1st_15th');
       setPaycheckDate(source.paycheckDate ?? today());
       setPreTax(
         source.preTax.map((d) => ({ ...d, amount: toAmountInput(d.amount) }))
@@ -85,6 +93,7 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
       setName('My paycheck');
       setGross('');
       setFrequency('biweekly');
+      setSemimonthlySchedule('1st_15th');
       setPaycheckDate(today());
       const defaults = defaultDeductions(savingsCategories[0]?.id);
       setPreTax(defaults.preTax);
@@ -132,6 +141,8 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
       payType,
       grossPay: grossValue,
       frequency: payType === 'hourly' ? null : frequency,
+      semimonthlySchedule:
+      payType === 'salaried' && frequency === 'semimonthly' ? semimonthlySchedule : null,
       paycheckDate: payType === 'hourly' ? paycheckDate : null,
       preTax: preTax.
       filter((d) => d.label.trim() && parseAmount(d.amount) > 0).
@@ -315,6 +326,22 @@ export function IncomeSourceSheet({ open, source, onClose }: IncomeSourceSheetPr
                               </option>
                         )}
                           </select>
+
+                          {frequency === 'semimonthly' &&
+                      <select
+                        id="income-semimonthly-schedule"
+                        value={semimonthlySchedule}
+                        onChange={(e) => setSemimonthlySchedule(e.target.value as SemimonthlySchedule)}
+                        aria-label="Which two days paychecks land on"
+                        className="mt-1.5 w-full rounded-control border border-line bg-surface px-2.5 py-2.5 text-sm text-ink outline-none focus:border-ink">
+
+                              {SEMIMONTHLY_OPTIONS.map((opt) =>
+                        <option key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                        )}
+                            </select>
+                      }
                         </div> :
 
                   <div className="min-w-0 flex-1">

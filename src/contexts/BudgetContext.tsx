@@ -13,8 +13,8 @@ import { Database } from '../lib/database.types';
 import { AuthUser, Category, Member, ParentCategory, Transaction } from '../types/budget';
 import { Deduction, IncomeSource, TaxLine } from '../types/income';
 import { STARTER_CATEGORIES } from '../data/starterCategories';
-import { availableMonths, toMonthKey, usageByCategory } from '../utils/rollups';
-import { generateAutoEntries, totalMonthlyNet } from '../utils/income';
+import { availableMonths, inMonth, toMonthKey, usageByCategory } from '../utils/rollups';
+import { totalMonthlyNet } from '../utils/income';
 import { generateRecurringEntries } from '../utils/recurring';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
@@ -127,9 +127,12 @@ interface BudgetContextValue {
   /** Full household data — for export and other cross-member operations */
   allCategories: Category[];
   allTransactions: Transaction[];
+  /** Household-wide payroll savings, kept out of allTransactions. */
+  allAutoEntries: Transaction[];
   allIncomeSources: IncomeSource[];
   takeHome: number;
   autoEntriesFor: (monthKey: string) => Transaction[];
+  myAutoEntriesFor: (monthKey: string) => Transaction[];
   recurringEntriesFor: (monthKey: string) => Transaction[];
   totalsByMember: (monthKey: string) => {
     member: Member;
@@ -173,8 +176,17 @@ const mapTransaction = (row: TransactionRow): Transaction => ({
   description: row.description,
   date: row.date,
   createdAt: row.created_at,
-  recurring: row.recurring
+  recurring: row.recurring,
+  // Posted server-side by generate_paycheck_entries() (migrations 0012/0013),
+  // never typed in — flagged so they render read-only and stay out of spend.
+  auto: row.source === 'auto',
+  autoSource: row.source === 'auto' ? 'income' : undefined
 });
+
+/** Payroll savings: a real row, but never spending — that money was never
+ *  spendable cash. Recurring-expense projections are `auto` too, and *are*
+ *  spending, so they must not match here. */
+const isPayrollAuto = (tx: Transaction) => tx.auto === true && tx.autoSource === 'income';
 
 const mapDeduction = (row: IncomeDeductionRow): Deduction => ({
   id: row.id,
@@ -204,6 +216,7 @@ taxes: IncomeTaxLineRow[])
     grossPay: Number(row.gross_pay),
     frequency: row.frequency,
     paycheckDate: row.paycheck_date,
+    semimonthlySchedule: row.semimonthly_schedule,
     preTax: mine.filter((d) => d.phase === 'pre_tax').map(mapDeduction),
     postTax: mine.filter((d) => d.phase === 'post_tax').map(mapDeduction),
     taxes: taxes.filter((t) => t.income_source_id === row.id).map(mapTaxLine),
@@ -613,9 +626,21 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     [rawCategories, rawGoals, selectedMonth]
   );
 
-  const transactions: Transaction[] = useMemo(
+  const mappedTransactions: Transaction[] = useMemo(
     () => rawTransactions.map(mapTransaction),
     [rawTransactions]
+  );
+
+  // The spend ledger excludes payroll savings; callers that want those pull
+  // them deliberately through autoEntriesFor / myAutoEntriesFor. Keeping the
+  // two apart preserves the split the old client-side projection created.
+  const transactions: Transaction[] = useMemo(
+    () => mappedTransactions.filter((tx) => !isPayrollAuto(tx)),
+    [mappedTransactions]
+  );
+  const payrollEntries: Transaction[] = useMemo(
+    () => mappedTransactions.filter(isPayrollAuto),
+    [mappedTransactions]
   );
 
   const allIncomeSources: IncomeSource[] = useMemo(
@@ -643,9 +668,21 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     [viewIncome, selectedMonth]
   );
 
+  const viewPayrollEntries = useMemo(
+    () => payrollEntries.filter((tx) => inView(tx.memberId)),
+    [payrollEntries, inView]
+  );
+
   const autoEntriesFor = useCallback(
-    (key: string) => generateAutoEntries(viewIncome, categories, key),
-    [viewIncome, categories]
+    (key: string) => inMonth(viewPayrollEntries, key),
+    [viewPayrollEntries]
+  );
+
+  // Settings reports the signed-in member's own payroll savings, never the
+  // household roll-up, so it needs a self-scoped view.
+  const myAutoEntriesFor = useCallback(
+    (key: string) => inMonth(payrollEntries.filter((tx) => tx.memberId === profile?.id), key),
+    [payrollEntries, profile]
   );
 
   const recurringEntriesFor = useCallback(
@@ -658,7 +695,7 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     activeMembers.map((member) => {
       const memberTransactions = transactions.filter((tx) => tx.memberId === member.id);
       const memberIncome = allIncomeSources.filter((s) => s.memberId === member.id);
-      const auto = generateAutoEntries(memberIncome, categories, key);
+      const auto = inMonth(payrollEntries.filter((tx) => tx.memberId === member.id), key);
       const recurring = generateRecurringEntries(memberTransactions, key);
       return {
         member,
@@ -670,7 +707,7 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
         autoSavings: auto.reduce((sum, tx) => sum + tx.amount, 0)
       };
     }),
-    [activeMembers, allIncomeSources, categories, transactions]
+    [activeMembers, allIncomeSources, payrollEntries, transactions]
   );
 
   const myCategories = useMemo(
@@ -893,6 +930,10 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
           gross_pay: source.grossPay,
           frequency: source.payType === 'hourly' ? null : source.frequency,
           paycheck_date: source.payType === 'hourly' ? source.paycheckDate : null,
+          semimonthly_schedule:
+          source.payType === 'salaried' && source.frequency === 'semimonthly' ?
+          source.semimonthlySchedule :
+          null,
           net_override: source.netOverride
         }).
         select().
@@ -910,6 +951,10 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
           gross_pay: source.grossPay,
           frequency: source.payType === 'hourly' ? null : source.frequency,
           paycheck_date: source.payType === 'hourly' ? source.paycheckDate : null,
+          semimonthly_schedule:
+          source.payType === 'salaried' && source.frequency === 'semimonthly' ?
+          source.semimonthlySchedule :
+          null,
           net_override: source.netOverride,
           updated_at: updatedAt
         }).
@@ -1024,9 +1069,11 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
       transactions: viewTransactions,
       allCategories: categories,
       allTransactions: transactions,
+      allAutoEntries: payrollEntries,
       allIncomeSources,
       takeHome,
       autoEntriesFor,
+      myAutoEntriesFor,
       recurringEntriesFor,
       totalsByMember,
       activeCategories,
@@ -1080,6 +1127,8 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     allIncomeSources,
     takeHome,
     autoEntriesFor,
+    myAutoEntriesFor,
+    payrollEntries,
     recurringEntriesFor,
     totalsByMember,
     activeCategories,
