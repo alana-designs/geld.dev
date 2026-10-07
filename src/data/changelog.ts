@@ -22,7 +22,7 @@ export const releases: ReleaseNote[] = [
   items: [
   'Find the new Export button at the top of the Activity tab.',
   'Every month with activity gets its own sheet, oldest to newest.',
-  'Each row has the date, description, amount, category, and whether it’s a Need, Want, or Saving.',
+  'Each row has the date, note, amount, category, and whether it’s a Need, Want, or Saving.',
   'Only your own entries are included — anything logged by someone in your household stays out.',]
 
 },

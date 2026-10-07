@@ -16,7 +16,7 @@ export interface ExportRow {
   Date: string;
   /** yyyy-MM — handy when sheets are stacked together for month-over-month analysis. */
   Month: string;
-  Description: string;
+  Note: string;
   Amount: number;
   Category: string;
   /** Needs / Wants / Savings */
@@ -43,7 +43,7 @@ export interface ExportInput {
 const COLUMNS: (keyof ExportRow)[] = [
   'Date',
   'Month',
-  'Description',
+  'Note',
   'Amount',
   'Category',
   'Type',
@@ -112,7 +112,7 @@ export function buildMonthSheets(input: ExportInput): MonthSheet[] {
       return {
         Date: tx.date,
         Month: monthKey,
-        Description: tx.description,
+        Note: tx.description,
         Amount: tx.amount,
         Category: category?.name ?? 'Unknown',
         Type: category?.parent ?? 'Unknown',
@@ -120,7 +120,7 @@ export function buildMonthSheets(input: ExportInput): MonthSheet[] {
         Source: entrySource(tx)
       };
     }).
-    sort((a, b) => a.Date.localeCompare(b.Date) || a.Description.localeCompare(b.Description));
+    sort((a, b) => a.Date.localeCompare(b.Date) || a.Note.localeCompare(b.Note));
 
     sheets.push({ monthKey, rows });
   });
@@ -145,7 +145,7 @@ export function downloadExcel(sheets: MonthSheet[], filename: string) {
     worksheet['!cols'] = [
     { wch: 11 }, // Date
     { wch: 9 }, // Month
-    { wch: 36 }, // Description
+    { wch: 36 }, // Note
     { wch: 11 }, // Amount
     { wch: 20 }, // Category
     { wch: 9 }, // Type
