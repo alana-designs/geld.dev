@@ -1,30 +1,55 @@
 import * as XLSX from 'xlsx';
-import { Category, Member, Transaction } from '../types/budget';
+import { Category, Transaction } from '../types/budget';
 import { generateRecurringEntries } from './recurring';
-import { inMonth, monthLabel } from './rollups';
+import { inMonth, shortMonthLabel, toMonthKey } from './rollups';
+
+/**
+ * Excel export of the signed-in user's own activity — one sheet per month.
+ *
+ * Privacy: this module deliberately has no notion of "other members".
+ * Everything is filtered to `selfId` up front, so even though BudgetContext
+ * holds the whole household's rows, nothing belonging to a household member
+ * can reach the workbook.
+ */
 
 export interface ExportRow {
   Date: string;
+  /** yyyy-MM — handy when sheets are stacked together for month-over-month analysis. */
   Month: string;
   Description: string;
   Amount: number;
   Category: string;
+  /** Needs / Wants / Savings */
   Type: string;
-  Member: string;
   Recurring: string;
   Source: string;
 }
 
-export interface ExportInput {
-  monthKeys: string[];
-  memberIds: string[];
-  transactions: Transaction[];
-  categories: Category[];
-  /** Payroll savings rows, generated server-side and kept out of
-   *  `transactions` — pass BudgetContext's `allAutoEntries`. */
-  autoEntries: Transaction[];
-  memberById: (id: string) => Member | undefined;
+export interface MonthSheet {
+  monthKey: string;
+  rows: ExportRow[];
 }
+
+export interface ExportInput {
+  /** The signed-in user. Only rows owned by this id are exported. */
+  selfId: string;
+  transactions: Transaction[];
+  /** Payroll savings rows (BudgetContext's `allAutoEntries`). */
+  autoEntries: Transaction[];
+  categories: Category[];
+  today?: Date;
+}
+
+const COLUMNS: (keyof ExportRow)[] = [
+  'Date',
+  'Month',
+  'Description',
+  'Amount',
+  'Category',
+  'Type',
+  'Recurring',
+  'Source'];
+
 
 function entrySource(tx: Transaction): string {
   if (tx.auto && tx.autoSource === 'recurring') return 'Recurring projection';
@@ -37,68 +62,97 @@ function recurringLabel(tx: Transaction): string {
   return tx.recurring ? 'Yes' : 'No';
 }
 
-function memberName(memberById: (id: string) => Member | undefined, memberId: string): string {
-  const member = memberById(memberId);
-  if (!member) return 'Unknown';
-  return member.isSelf ? 'You' : member.name;
+/** Every yyyy-MM key from `start` through `end`, oldest first. */
+function monthKeysBetween(start: string, end: string): string[] {
+  const keys: string[] = [];
+  let [year, month] = start.split('-').map(Number);
+  const [endYear, endMonth] = end.split('-').map(Number);
+  while (year < endYear || year === endYear && month <= endMonth) {
+    keys.push(`${year}-${String(month).padStart(2, '0')}`);
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return keys;
 }
 
-/** Gather all entries for export across selected months and members. */
-export function buildExportRows(input: ExportInput): ExportRow[] {
-  const {
-    monthKeys,
-    memberIds,
-    transactions,
-    categories,
-    autoEntries,
-    memberById
-  } = input;
-  const memberSet = new Set(memberIds);
-  const categoryById = new Map(categories.map((c) => [c.id, c]));
-  const rows: ExportRow[] = [];
+/** One entry per month that has activity, oldest first. Own data only. */
+export function buildMonthSheets(input: ExportInput): MonthSheet[] {
+  const { selfId, today = new Date() } = input;
 
-  monthKeys.forEach((monthKey) => {
-    memberIds.forEach((memberId) => {
-      const memberTransactions = transactions.filter((tx) => tx.memberId === memberId);
-      const manual = inMonth(memberTransactions, monthKey);
-      const recurring = generateRecurringEntries(memberTransactions, monthKey);
-      const auto = inMonth(autoEntries.filter((tx) => tx.memberId === memberId), monthKey);
-      const entries = [...manual, ...recurring, ...auto].filter((tx) => memberSet.has(tx.memberId));
+  // The privacy boundary: drop everything that isn't the signed-in user's.
+  const own = input.transactions.filter((tx) => tx.memberId === selfId);
+  const ownAuto = input.autoEntries.filter((tx) => tx.memberId === selfId);
+  const categoryById = new Map(
+    input.categories.filter((c) => c.memberId === selfId).map((c) => [c.id, c])
+  );
 
-      entries.forEach((tx) => {
-        const category = categoryById.get(tx.categoryId);
-        rows.push({
-          Date: tx.date,
-          Month: monthLabel(tx.date.slice(0, 7)),
-          Description: tx.description,
-          Amount: tx.amount,
-          Category: category?.name ?? 'Unknown',
-          Type: category?.parent ?? 'Unknown',
-          Member: memberName(memberById, tx.memberId),
-          Recurring: recurringLabel(tx),
-          Source: entrySource(tx)
-        });
-      });
-    });
+  const dated = [...own, ...ownAuto];
+  if (dated.length === 0) return [];
+
+  const dates = dated.map((tx) => tx.date.slice(0, 7)).sort();
+  const currentMonth = toMonthKey(today);
+  const first = dates[0];
+  const last = dates[dates.length - 1] > currentMonth ? dates[dates.length - 1] : currentMonth;
+
+  const sheets: MonthSheet[] = [];
+  monthKeysBetween(first, last).forEach((monthKey) => {
+    const entries = [
+    ...inMonth(own, monthKey),
+    ...generateRecurringEntries(own, monthKey, today),
+    ...inMonth(ownAuto, monthKey)];
+
+    if (entries.length === 0) return;
+
+    const rows = entries.
+    map((tx): ExportRow => {
+      const category = categoryById.get(tx.categoryId);
+      return {
+        Date: tx.date,
+        Month: monthKey,
+        Description: tx.description,
+        Amount: tx.amount,
+        Category: category?.name ?? 'Unknown',
+        Type: category?.parent ?? 'Unknown',
+        Recurring: recurringLabel(tx),
+        Source: entrySource(tx)
+      };
+    }).
+    sort((a, b) => a.Date.localeCompare(b.Date) || a.Description.localeCompare(b.Description));
+
+    sheets.push({ monthKey, rows });
   });
 
-  return rows.sort((a, b) => a.Date.localeCompare(b.Date) || a.Description.localeCompare(b.Description));
+  return sheets;
 }
 
-/** Build a filename from the selected month keys. */
-export function exportFilename(monthKeys: string[]): string {
-  if (monthKeys.length === 0) return 'expense-tracker_export.xlsx';
-  const sorted = [...monthKeys].sort();
-  const start = sorted[0];
-  const end = sorted[sorted.length - 1];
-  const range = start === end ? start : `${start}_to_${end}`;
-  return `expense-tracker_${range}.xlsx`;
+/** e.g. geld-activity_2026-10-07.xlsx */
+export function exportFilename(today: Date = new Date()): string {
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, '0');
+  const d = String(today.getDate()).padStart(2, '0');
+  return `geld-activity_${y}-${m}-${d}.xlsx`;
 }
 
-/** Write rows to an .xlsx file and trigger a browser download. */
-export function downloadExcel(rows: ExportRow[], filename: string) {
-  const worksheet = XLSX.utils.json_to_sheet(rows);
+/** Write one worksheet per month and trigger a browser download. */
+export function downloadExcel(sheets: MonthSheet[], filename: string) {
+  if (sheets.length === 0) return;
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Transactions');
+  sheets.forEach(({ monthKey, rows }) => {
+    const worksheet = XLSX.utils.json_to_sheet(rows, { header: COLUMNS });
+    worksheet['!cols'] = [
+    { wch: 11 }, // Date
+    { wch: 9 }, // Month
+    { wch: 36 }, // Description
+    { wch: 11 }, // Amount
+    { wch: 20 }, // Category
+    { wch: 9 }, // Type
+    { wch: 10 }, // Recurring
+    { wch: 22 } // Source
+    ];
+    XLSX.utils.book_append_sheet(workbook, worksheet, shortMonthLabel(monthKey));
+  });
   XLSX.writeFile(workbook, filename);
 }

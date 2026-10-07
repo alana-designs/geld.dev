@@ -50,7 +50,7 @@ A manual-entry-only household budget tracker. Core thesis: bank-linking/auto-imp
 - Auth is passwordless (magic link via `supabase.auth.signInWithOtp`). `src/lib/supabase.ts` now uses a custom storage adapter that routes the session to `localStorage` (persists indefinitely) or `sessionStorage` (cleared on browser close) based on a "Stay signed in on this device" checkbox in `AuthModal`, controlled by `getRememberMe`/`setRememberMe`. Fixes sessions silently expiring (mainly a Safari/iOS localStorage-eviction issue).
 - **Editable first names**: `profiles` already had a `name` column (set from email prefix at signup); `updateMyName()` context action now lets users edit it from AuthModal. Displayed in the header chip, household member list, and anywhere `Member.name` is used.
 - **Recurring expenses**: transactions have a `recurring` boolean (migration `0003_recurring_transactions.sql`, applied). Marking a transaction recurring makes it a template; `src/utils/recurring.ts` → `generateRecurringEntries()` projects virtual copies forward into future months on the same day-of-month (clamped to month length). Same "Auto ·" badge as payroll auto-entries but labeled "from Expense". Key distinction from payroll auto-savings: recurring expenses **are** counted in spending totals (Dashboard/Budget/Activity) because they're real cash out, not pre-routed savings. Recurring expenses are still projected live per viewed month with no cron job — unlike payroll auto-savings, which moved server-side on 2026-08-31. Both wear an "Auto ·" badge, so `autoSource` (`'recurring'` vs `'income'`) is what decides whether an entry counts as spending.
-- **CSV/Excel export (utility layer built, UI not yet)**: `src/utils/export.ts` builds `ExportRow[]` across selected months and members — merges manual transactions, `generateRecurringEntries()`, and the payroll savings rows passed in as `autoEntries` (from `allAutoEntries`), sorts by date, and triggers a `.xlsx` download via SheetJS. `buildExportRows()` + `downloadExcel()` + `exportFilename()` are the public API. `BudgetContext` now exposes `allCategories`, `allTransactions`, `allIncomeSources`, `allAutoEntries` (full household data, not scoped to selected member tab) for the export to use. `rollups.ts` gained `monthsByYear()` / `yearsFromMonths()` for grouping month selectors in the export UI. The UI itself (page/modal/sheet for picking date range and members) is not yet built.
+- **Excel export (shipped 2026-10-07)**: Export button in the Activity header, visible only on your own tab. `src/utils/export.ts` → `buildMonthSheets()` returns one sheet per month with activity (manual entries + `generateRecurringEntries()` projections + payroll savings, tagged in a `Source` column); `downloadExcel()` writes the workbook, `exportFilename()` names it. **Own data only by design**: every input is filtered to `selfId` inside `buildMonthSheets()`, so household members' rows can't reach the file even though `allTransactions`/`allAutoEntries`/`allCategories` hold the whole household. The month list is derived from the user's own rows, not the context's `months` (which is household-wide). No CSV variant or date-range picker yet.
 
 ## Where things live
 
@@ -59,14 +59,14 @@ A manual-entry-only household budget tracker. Core thesis: bank-linking/auto-imp
 - `src/components/income/`: income source + deduction editors
 - `src/contexts/BudgetContext.tsx`: shared budget state
 - `src/utils/recurring.ts`: `generateRecurringEntries()` — projects recurring transactions into future months
-- `src/utils/export.ts`: `buildExportRows()` / `downloadExcel()` / `exportFilename()` — Excel export utility (UI not yet wired up)
+- `src/utils/export.ts`: `buildMonthSheets()` / `downloadExcel()` / `exportFilename()` — own-data Excel export, wired into the Activity header
 - `src/docs/manual_budget_app_prd.md`: full PRD — read this for any product-decision question before guessing
 - `supabase/migrations/`: schema + RLS, chronological
 
 ## Open questions / things not yet decided
 
 - Paystub OCR fast-follow: no timeline or design yet
-- CSV export of transactions: mentioned as reasonable in PRD (8), not yet built
+- CSV export of transactions: mentioned as reasonable in PRD (8), not yet built (Excel export shipped 2026-10-07)
 
 ## Auth/profile coupling (note)
 

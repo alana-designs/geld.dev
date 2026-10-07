@@ -13,6 +13,20 @@ export interface ReleaseNote {
 /** Newest first. */
 export const releases: ReleaseNote[] = [
 {
+  id: 'r-2026-10-07',
+  version: '1.1',
+  date: '2026-10-07',
+  title: 'Export your activity to Excel',
+  summary:
+  'You can now download everything you’ve logged as an Excel file, with each month on its own sheet. Handy for digging into your spending habits or spotting month-over-month trends.',
+  items: [
+  'Find the new Export button at the top of the Activity tab.',
+  'Every month with activity gets its own sheet, oldest to newest.',
+  'Each row has the date, description, amount, category, and whether it’s a Need, Want, or Saving.',
+  'Only your own entries are included — anything logged by someone in your household stays out.',]
+
+},
+{
   id: 'r-2026-08-22',
   version: '1.0',
   date: '2026-08-22',

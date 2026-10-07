@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { SearchIcon, XIcon } from 'lucide-react';
+import { DownloadIcon, SearchIcon, XIcon } from 'lucide-react';
 import { useBudget } from '../contexts/BudgetContext';
 import { PARENT_CATEGORIES, PARENT_STYLES, ParentCategory, Transaction } from '../types/budget';
 import { groupByDay, inMonth, monthLabel } from '../utils/rollups';
@@ -9,6 +9,7 @@ import { EntrySheet } from '../components/EntrySheet';
 import { MonthPicker } from '../components/MonthPicker';
 import { MemberTabs } from '../components/MemberTabs';
 import { AddExpenseButton } from '../components/AddExpenseButton';
+import { buildMonthSheets, downloadExcel, exportFilename } from '../utils/export';
 
 interface ActivityProps {
   onAdd: () => void;
@@ -26,13 +27,34 @@ export function Activity({ onAdd }: ActivityProps) {
     recurringEntriesFor,
     canEdit,
     isHousehold,
-    memberById
+    memberById,
+    selfId,
+    allTransactions,
+    allAutoEntries,
+    allCategories
   } = useBudget();
   const [query, setQuery] = useState('');
   const [parent, setParent] = useState<ParentCategory | null>(null);
   const [editing, setEditing] = useState<Transaction | null>(null);
 
   const searching = query.trim().length > 0;
+
+  // Exports only the signed-in user's own entries (see utils/export.ts),
+  // regardless of which member tab is open.
+  const handleExport = () => {
+    if (!selfId) return;
+    const sheets = buildMonthSheets({
+      selfId,
+      transactions: allTransactions,
+      autoEntries: allAutoEntries,
+      categories: allCategories
+    });
+    downloadExcel(sheets, exportFilename());
+  };
+  const hasOwnEntries =
+  Boolean(selfId) && (
+  allTransactions.some((tx) => tx.memberId === selfId) ||
+  allAutoEntries.some((tx) => tx.memberId === selfId));
 
   const days = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -76,6 +98,19 @@ export function Activity({ onAdd }: ActivityProps) {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <MonthPicker months={months} value={selectedMonth} onChange={setSelectedMonth} />
+          {canEdit &&
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={!hasOwnEntries}
+            aria-label="Export my activity to Excel"
+            title="Export my activity to Excel (one sheet per month)"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-control border border-line bg-surface px-2.5 text-sm font-semibold text-ink transition-colors hover:border-ink disabled:cursor-not-allowed disabled:opacity-40 lg:px-3.5">
+
+              <DownloadIcon className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden lg:inline">Export</span>
+            </button>
+          }
           {canEdit && <AddExpenseButton onClick={onAdd} />}
         </div>
       </header>

@@ -4,7 +4,7 @@ Product improvement ideas and future work. Add to this whenever an idea comes up
 
 ## Now / Next
 
-- **CSV/Excel export UI** — utility layer is done (`src/utils/export.ts`: `buildExportRows()` + `downloadExcel()`; `xlsx` dep added; BudgetContext exposes `allCategories`/`allTransactions`/`allIncomeSources`; `rollups.ts` has `monthsByYear()` helpers). Still needs: UI for picking date range + members, and a trigger (button in Activity or Settings).
+- _(nothing queued — pick from the backlog below)_
 
 ## Backlog
 
@@ -23,6 +23,8 @@ Product improvement ideas and future work. Add to this whenever an idea comes up
 - Multi-currency / locale support
 
 ## Shipped
+
+- **Excel export of your own activity (2026-10-07, v1.1)** — Export button in the Activity header (own tab only) downloads a `.xlsx` with one sheet per month that has activity. `buildMonthSheets()` in `src/utils/export.ts` filters everything to `selfId` up front, so household members' rows can never reach the file. Includes manual entries, recurring projections and payroll savings (labelled in a Source column). Replaces the earlier multi-member `buildExportRows()`. Changelog entry added. Still open: CSV variant, date-range picker.
 
 - **`ensure_profile()` self-heal (2026-08-22, migration 0009)** — an `auth.users` row with no `profiles` row used to be a permanently stuck account, since `handle_new_user()` only fires on INSERT and the load path called `.single()`. The client now uses `maybeSingle()` and calls `ensure_profile()` on a miss, which rebuilds a household of one. Idempotent, advisory-locked per user. Create path is not yet exercised end-to-end — see the note in KNOWLEDGE.md.
 
