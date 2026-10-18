@@ -54,7 +54,7 @@ export function ConfirmMemberCard({ request }: {request: PendingConfirmation;}) 
           <div className="flex items-center gap-3">
             <span
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
-              style={{ backgroundColor: '#8c6239' }}
+              style={{ backgroundColor: '#8a5f7e' }}
               aria-hidden="true">
 
               {request.acceptedName.slice(0, 1).toUpperCase()}

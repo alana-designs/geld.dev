@@ -13,7 +13,7 @@ export function MemberTabs() {
 
   const tabs = [
   ...activeMembers.map((m) => ({ id: m.id, label: m.isSelf ? 'You' : m.name, color: m.color })),
-  { id: HOUSEHOLD_VIEW, label: 'Household', color: '#38352f' }];
+  { id: HOUSEHOLD_VIEW, label: 'Household', color: '#2f4832' }];
 
 
   return (

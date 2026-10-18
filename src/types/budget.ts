@@ -55,7 +55,7 @@ export const PARENT_STYLES: Record<
   {hex: string;text: string;bg: string;border: string;dot: string;blurb: string;}> =
 {
   Needs: {
-    hex: '#6f7a4a',
+    hex: '#2f4832',
     text: 'text-needs',
     bg: 'bg-needs/8',
     border: 'border-needs/25',
@@ -63,7 +63,7 @@ export const PARENT_STYLES: Record<
     blurb: 'Rent, food, transport — the non-negotiables.'
   },
   Wants: {
-    hex: '#c1743c',
+    hex: '#c4764c',
     text: 'text-wants',
     bg: 'bg-wants/8',
     border: 'border-wants/25',
@@ -71,7 +71,7 @@ export const PARENT_STYLES: Record<
     blurb: 'The fun stuff you choose to spend on.'
   },
   Savings: {
-    hex: '#93627e',
+    hex: '#3f7a78',
     text: 'text-savings',
     bg: 'bg-savings/8',
     border: 'border-savings/25',
@@ -79,3 +79,5 @@ export const PARENT_STYLES: Record<
     blurb: 'Money you move forward, not out.'
   }
 };
+/** Category chart colors, assigned by rank. The last one is for "everything else". */
+export const CHART_COLORS = ['#2f4832', '#3f7a78', '#c4764c', '#d4b170', '#8a5f7e', '#8fbfa3'];

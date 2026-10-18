@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlertTriangleIcon } from 'lucide-react';
-import { PARENT_STYLES } from '../types/budget';
+import { CHART_COLORS } from '../types/budget';
 import { useBudget } from '../contexts/BudgetContext';
 import { formatCurrency } from '../utils/format';
 
@@ -9,107 +9,120 @@ interface TopCategoriesProps {
   amounts: Record<string, number>;
 }
 
+/** Biggest lines get their own color; everything past this folds into one slice. */
+const MAX_NAMED = 5;
+
+interface Slice {
+  key: string;
+  name: string;
+  amount: number;
+  color: string;
+  memberLabel?: string;
+  /** Dollars over this category's monthly goal, when it has one and has blown it. */
+  overBy: number;
+  goal: number;
+}
+
 /**
- * Ranked by size, so the big fixed costs are the point rather than a
- * distortion. Rows stay ordered by dollars — these are your biggest lines —
- * while each bar reads as a share of that line's own goal, so a small category
- * that's blown its budget is as visible as a large one that hasn't.
- *
- * Categories with no goal get an empty track rather than a bar. Drawing them
- * relative to the largest line would put two different meanings on one axis,
- * which is the comparison problem this widget had before.
+ * One stacked bar showing how the month's spending splits across your biggest
+ * categories, with a legend underneath. Ranked by dollars, so the big fixed
+ * costs lead. Anything past the top five is rolled into "Everything else".
+ * A warning icon marks any category that's over its own goal.
  */
 export function TopCategories({ amounts }: TopCategoriesProps) {
   const { categories, isHousehold, memberById } = useBudget();
 
-  const rows = Object.entries(amounts).
-  map(([id, amount]) => ({ category: categories.find((c) => c.id === id), amount })).
-  filter((row) => Boolean(row.category) && row.amount > 0).
-  sort((a, b) => b.amount - a.amount).
-  slice(0, 5);
+  const ranked = Object.entries(amounts).
+  flatMap(([id, amount]) => {
+    const category = categories.find((c) => c.id === id);
+    return category && amount > 0 ? [{ category, amount }] : [];
+  }).
+  sort((a, b) => b.amount - a.amount);
+
+  const slices: Slice[] = ranked.slice(0, MAX_NAMED).map(({ category, amount }, i) => {
+    const member = isHousehold ? memberById(category.memberId) : undefined;
+    const goal = category.monthlyGoal;
+    return {
+      key: category.id,
+      name: category.name,
+      amount,
+      color: CHART_COLORS[i],
+      memberLabel: member ? member.isSelf ? 'You' : member.name : undefined,
+      overBy: goal > 0 && amount > goal ? amount - goal : 0,
+      goal
+    };
+  });
+
+  const restTotal = ranked.slice(MAX_NAMED).reduce((sum, r) => sum + r.amount, 0);
+  if (restTotal > 0) {
+    slices.push({
+      key: 'everything-else',
+      name: 'Everything else',
+      amount: restTotal,
+      color: CHART_COLORS[MAX_NAMED],
+      overBy: 0,
+      goal: 0
+    });
+  }
+
+  const total = slices.reduce((sum, s) => sum + s.amount, 0);
 
   return (
     <section className="overflow-hidden rounded-card border border-line bg-surface">
       <div className="border-b border-line px-4 py-2.5">
-        <h2 className="text-sm font-semibold tracking-[-0.01em] text-ink">Where it&rsquo;s going</h2>
+        <h2 className="text-sm font-semibold tracking-[-0.01em] text-ink">Top categories</h2>
         <p className="mt-0.5 text-[11px] text-subtle">
-          Your five biggest lines, each against its own goal.
+          Where this month&rsquo;s spending went, biggest first.
         </p>
       </div>
 
-      {rows.length === 0 ?
+      {slices.length === 0 ?
       <p className="px-4 py-8 text-center text-xs text-subtle">Nothing logged yet.</p> :
 
-      <ul className="divide-y divide-line">
-          {rows.map(({ category, amount }) => {
-          if (!category) return null;
-          const goal = category.monthlyGoal;
-          const hasGoal = goal > 0;
-          const pct = hasGoal ? amount / goal * 100 : 0;
-          const over = hasGoal && amount > goal;
-          const member = isHousehold ? memberById(category.memberId) : undefined;
+      <div className="flex flex-col gap-4 px-4 py-4">
+          <div
+          className="flex h-3.5 gap-0.5"
+          role="img"
+          aria-label={`Spending by category: ${slices.
+          map((s) => `${s.name} ${formatCurrency(s.amount, false)}`).
+          join(', ')}`}>
 
-          return (
-            <li key={category.id} className="px-4 py-2.5">
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="truncate text-[14px] font-medium tracking-[-0.01em] text-ink">
-                      {category.name}
-                    </span>
-                    {member &&
-                  <span className="shrink-0 text-[11px] text-muted">
-                        {member.isSelf ? '· You' : `· ${member.name}`}
-                      </span>
-                  }
-                  </span>
-                  <span className="tabular shrink-0 text-[14px] font-semibold text-ink">
-                    {formatCurrency(amount, false)}
-                  </span>
-                </div>
+            {slices.map((s) =>
+          <div
+            key={s.key}
+            className="min-w-[4px] rounded"
+            style={{ flex: `${s.amount} 0 0`, backgroundColor: s.color }}
+            title={`${s.name}: ${Math.round(s.amount / total * 100)}% of spending`} />
+          )}
+          </div>
 
-                <div className="mt-1.5 flex items-center gap-2">
-                  <div
-                  className="h-1 flex-1 overflow-hidden rounded-full bg-line"
-                  role={hasGoal ? 'progressbar' : undefined}
-                  aria-valuenow={hasGoal ? Math.round(pct) : undefined}
-                  aria-valuemin={hasGoal ? 0 : undefined}
-                  aria-valuemax={hasGoal ? 100 : undefined}
-                  aria-label={hasGoal ? `${category.name}: ${Math.round(pct)}% of goal used` : undefined}>
-
-                    {hasGoal &&
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{
-                      // Fill caps at the track; the true figure is in the label,
-                      // so 103% and 140% don't render identically to the eye.
-                      width: `${Math.min(pct, 100)}%`,
-                      backgroundColor: over ? '#b1462d' : PARENT_STYLES[category.parent].hex
-                    }} />
-                  }
-                  </div>
-
-                  {hasGoal ?
+          <ul className="grid grid-cols-2 gap-x-5 gap-y-2.5">
+            {slices.map((s) =>
+          <li key={s.key} className="flex min-w-0 items-center gap-2 text-[13px]">
                 <span
-                  className={`tabular flex shrink-0 items-center gap-1 text-[11px] ${
-                  over ? 'font-semibold text-alert' : 'text-subtle'}`
-                  }
-                  title={
-                  over ?
-                  `${formatCurrency(amount - goal, false)} over a ${formatCurrency(goal, false)} goal` :
-                  `${formatCurrency(goal - amount, false)} left of ${formatCurrency(goal, false)}`
-                  }>
+              className="h-2.5 w-2.5 shrink-0 rounded-[3px]"
+              style={{ backgroundColor: s.color }}
+              aria-hidden="true" />
 
-                      {Math.round(pct)}%
-                      {over && <AlertTriangleIcon className="h-3 w-3" aria-hidden="true" />}
-                    </span> :
+                <span className="min-w-0 flex-1 truncate text-muted">
+                  {s.name}
+                  {s.memberLabel && <span className="text-subtle"> · {s.memberLabel}</span>}
+                </span>
+                {s.overBy > 0 &&
+            <span
+              className="shrink-0 text-alert"
+              title={`${formatCurrency(s.overBy, false)} over a ${formatCurrency(s.goal, false)} goal`}>
 
-                <span className="shrink-0 text-[11px] text-subtle">no goal</span>
-                }
-                </div>
-              </li>);
-
-        })}
-        </ul>
+                    <AlertTriangleIcon className="h-3 w-3" aria-label="Over goal" />
+                  </span>
+            }
+                <span className="tabular shrink-0 font-semibold text-ink">
+                  {formatCurrency(s.amount, false)}
+                </span>
+              </li>
+          )}
+          </ul>
+        </div>
       }
     </section>);
 

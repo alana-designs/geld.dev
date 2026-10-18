@@ -221,7 +221,7 @@ function FilterChip({
       className={`h-8 shrink-0 rounded-full border px-3.5 text-[13px] font-medium transition-colors ${
       active ? 'border-transparent text-white' : 'border-line bg-surface text-muted'}`
       }
-      style={active ? { backgroundColor: color ?? '#38352f' } : undefined}>
+      style={active ? { backgroundColor: color ?? '#2f4832' } : undefined}>
       
       {label}
     </button>);

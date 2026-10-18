@@ -187,7 +187,7 @@ export function Budget({ onAdd }: BudgetProps) {
                                 <span
                               className="h-1.5 w-1.5 rounded-full"
                               style={{
-                                backgroundColor: memberById(c.memberId)?.color ?? '#a1a1aa'
+                                backgroundColor: memberById(c.memberId)?.color ?? '#a3ac9e'
                               }}
                               aria-hidden="true" />
                             

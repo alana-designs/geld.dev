@@ -59,7 +59,7 @@ export interface PendingConfirmation {
   acceptedAt: string;
 }
 
-const INVITE_COLORS = ['#8c6239', '#6f7a4a', '#93627e', '#a3562f'];
+const INVITE_COLORS = ['#8a5f7e', '#2f4832', '#3f7a78', '#c4764c'];
 
 interface NewTransaction {
   amount: number;

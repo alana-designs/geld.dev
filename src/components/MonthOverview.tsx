@@ -52,7 +52,7 @@ export function MonthOverview({
                   key={entry.name}
                   fill={
                   entry.name === 'empty' ?
-                  '#eceae5' :
+                  '#eceee8' :
                   PARENT_STYLES[entry.name as ParentCategory].hex
                   }
                   opacity={
