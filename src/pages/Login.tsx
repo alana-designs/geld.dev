@@ -1,21 +1,26 @@
 import React, { useState } from 'react';
-import { ArrowLeftIcon, CheckIcon, LoaderIcon } from 'lucide-react';
+import { ArrowLeftIcon, CheckIcon, LoaderIcon, MailIcon } from 'lucide-react';
 import { useBudget } from '../contexts/BudgetContext';
+import { LoginShowcase } from './LoginShowcase';
+import './Login.css';
 
 /**
- * Signed-out landing screen. The markup here is intentionally plain — the real
- * design is being drawn separately and will be ported in. Everything that
- * matters (provider calls, remember-me, redirect-back, error states) lives in
- * the handlers below, so swapping the visuals shouldn't touch the logic.
+ * Signed-out landing screen, ported from the Claude Design comp: sign-in card
+ * on the left, a looping preview of the app on the right.
+ *
+ * Two deliberate departures from the comp, which was drawn while Google was
+ * still only planned: the Google button is live rather than badged "Soon", and
+ * it carries Google's own mark instead of a plain letter G, which is what
+ * their branding terms ask for on a real sign-in button.
  */
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type Stage = 'idle' | 'sending' | 'sent' | 'redirecting';
+type Stage = 'email' | 'sending' | 'sent' | 'redirecting';
 
 function GoogleMark() {
   return (
-    <svg className="h-4 w-4" viewBox="0 0 48 48" aria-hidden="true">
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
       <path
         fill="#4285F4"
         d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"
@@ -40,8 +45,10 @@ export function Login() {
   const { sendMagicLink, signInWithGoogle } = useBudget();
   const [email, setEmail] = useState('');
   const [remember, setRemember] = useState(true);
-  const [stage, setStage] = useState<Stage>('idle');
+  const [stage, setStage] = useState<Stage>('email');
   const [error, setError] = useState<string | null>(null);
+
+  const busy = stage === 'sending' || stage === 'redirecting';
 
   const google = async () => {
     setError(null);
@@ -49,142 +56,144 @@ export function Login() {
     const { error: oauthError } = await signInWithGoogle(remember);
     if (oauthError) {
       setError(oauthError);
-      setStage('idle');
+      setStage('email');
     }
-    // On success the browser navigates away to Google, so there's nothing to
-    // reset here — the redirect back lands on the app with a session.
+    // On success the browser leaves for Google, so there's nothing to reset —
+    // the redirect back lands on the app with a session.
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!emailPattern.test(email.trim())) {
+    const trimmed = email.trim();
+    if (!emailPattern.test(trimmed)) {
       setError('Enter a valid email address.');
       return;
     }
     setError(null);
     setStage('sending');
-    const { error: sendError } = await sendMagicLink(email.trim(), remember);
+    const { error: sendError } = await sendMagicLink(trimmed, remember);
     if (sendError) {
       setError(sendError);
-      setStage('idle');
+      setStage('email');
       return;
     }
     setStage('sent');
   };
 
-  const busy = stage === 'sending' || stage === 'redirecting';
-
   return (
-    <div className="flex min-h-full w-full items-center justify-center bg-canvas px-4 py-12">
-      <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-bold tracking-[-0.03em] text-ink">Geld</h1>
-
-        {stage === 'sent' ? (
-          <div className="mt-6 rounded-card border border-line bg-surface p-6">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-needs/10 text-needs">
-              <CheckIcon className="h-5 w-5" aria-hidden="true" />
-            </div>
-            <h2 className="mt-4 text-xl font-semibold tracking-[-0.02em] text-ink">
-              Check your inbox
-            </h2>
-            <p className="mt-1.5 text-sm leading-relaxed text-muted">
-              We sent a sign-in link to <span className="font-medium text-ink">{email}</span>. Open
-              it on this device and you&rsquo;ll land straight back here.
-            </p>
-            <button
-              type="button"
-              onClick={() => setStage('idle')}
-              className="mt-5 flex items-center gap-1.5 text-xs font-medium text-subtle hover:text-ink"
-            >
-              <ArrowLeftIcon className="h-3.5 w-3.5" aria-hidden="true" />
-              Use a different email
-            </button>
+    <div className="geld-login">
+      <section className="signin" aria-label="Sign in">
+        <div className="signin-inner">
+          <div className="brand">
+            <span className="brand-mark" aria-hidden="true">
+              G
+            </span>
+            Geld
           </div>
-        ) : (
-          <div className="mt-6 rounded-card border border-line bg-surface p-6">
-            <h2 className="text-xl font-semibold tracking-[-0.02em] text-ink">
-              Sign in to your ledger
-            </h2>
-            <p className="mt-1.5 text-sm leading-relaxed text-muted">
-              Use Google, or have a one-time link emailed to you. Either way you land in the same
-              ledger.
-            </p>
 
-            <button
-              type="button"
-              onClick={google}
-              disabled={busy}
-              className="mt-5 flex w-full items-center justify-center gap-2.5 rounded-control border border-line bg-surface py-3 text-sm font-semibold text-ink transition-colors hover:bg-canvas disabled:opacity-60"
-            >
-              {stage === 'redirecting' ? (
-                <LoaderIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
+          <div className="signin-center">
+            <div className="modal" role="dialog" aria-labelledby="auth-title">
+              {stage === 'sent' ? (
+                <div className="sent">
+                  <div className="icon-circle ok">
+                    <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <h1 id="auth-title">Check your inbox</h1>
+                  <p className="lede">
+                    We sent a magic link to{' '}
+                    <strong style={{ color: 'var(--ink)', fontWeight: 500 }}>{email.trim()}</strong>
+                    . Open it on this device and you&rsquo;ll be signed straight in.
+                  </p>
+                  <button type="button" className="link" onClick={() => setStage('email')}>
+                    <ArrowLeftIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                    Use a different email
+                  </button>
+                </div>
               ) : (
-                <GoogleMark />
+                <form onSubmit={submit} noValidate>
+                  <div className="icon-circle">
+                    <MailIcon className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <h1 id="auth-title">Sign in to your ledger</h1>
+                  <p className="lede">
+                    No password. Use Google, or have a one-time link emailed to you — either way
+                    you land in the same ledger.
+                  </p>
+
+                  <label className="field" htmlFor="auth-email">
+                    Email address
+                  </label>
+                  <input
+                    id="auth-email"
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? 'auth-error' : undefined}
+                  />
+                  {error && (
+                    <p className="err" id="auth-error">
+                      {error}
+                    </p>
+                  )}
+
+                  <label className="remember">
+                    <input
+                      type="checkbox"
+                      checked={remember}
+                      onChange={(e) => setRemember(e.target.checked)}
+                    />
+                    Stay signed in on this device
+                  </label>
+
+                  <button type="submit" className="btn" disabled={busy}>
+                    {stage === 'sending' ? (
+                      <>
+                        <LoaderIcon className="spin h-4 w-4" aria-hidden="true" />
+                        Sending link&hellip;
+                      </>
+                    ) : (
+                      'Email me a magic link'
+                    )}
+                  </button>
+
+                  <div className="or" aria-hidden="true">
+                    or
+                  </div>
+
+                  <button type="button" className="btn btn-google" onClick={google} disabled={busy}>
+                    {stage === 'redirecting' ? (
+                      <LoaderIcon className="spin h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <GoogleMark />
+                    )}
+                    Continue with Google
+                  </button>
+
+                  <p className="note">
+                    Already have entries here? Use the same address you signed up with — that&rsquo;s
+                    what ties the two together.
+                  </p>
+
+                  <p className="fine">
+                    This app never connects to a bank. Every dollar in it gets typed in on purpose.
+                  </p>
+                </form>
               )}
-              Continue with Google
-            </button>
-
-            <div className="my-5 flex items-center gap-3">
-              <span className="h-px flex-1 bg-line" />
-              <span className="text-[11px] font-medium uppercase tracking-wide text-subtle">or</span>
-              <span className="h-px flex-1 bg-line" />
             </div>
-
-            <form onSubmit={submit}>
-              <label htmlFor="login-email" className="block text-xs font-medium text-muted">
-                Email address
-              </label>
-              <input
-                id="login-email"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                aria-invalid={Boolean(error)}
-                aria-describedby={error ? 'login-error' : undefined}
-                className="mt-1.5 w-full rounded-control border border-line bg-surface px-3 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-subtle focus:border-ink"
-              />
-
-              <button
-                type="submit"
-                disabled={busy}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-control bg-primary py-3 text-sm font-semibold text-white transition-transform active:scale-[0.99] disabled:opacity-70"
-              >
-                {stage === 'sending' ? (
-                  <>
-                    <LoaderIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
-                    Sending link&hellip;
-                  </>
-                ) : (
-                  'Email me a sign-in link'
-                )}
-              </button>
-            </form>
-
-            {error && (
-              <p id="login-error" className="mt-3 text-xs text-alert">
-                {error}
-              </p>
-            )}
-
-            <label className="mt-4 flex items-center gap-2 text-xs font-medium text-muted">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                className="h-4 w-4 rounded border-line text-primary accent-primary"
-              />
-              Stay signed in on this device
-            </label>
           </div>
-        )}
 
-        <p className="mt-5 text-center text-[11px] leading-relaxed text-subtle">
-          This app never connects to a bank. Every dollar in it gets typed in on purpose.
-        </p>
-      </div>
+          <div className="foot">
+            <span>geld.dev</span>
+            <span>Manual entry. No bank linking.</span>
+          </div>
+        </div>
+      </section>
+
+      <LoginShowcase />
     </div>
   );
 }
