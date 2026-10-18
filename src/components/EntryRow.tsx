@@ -17,6 +17,18 @@ interface EntryRowProps {
 
 export function EntryRow({ transaction, category, member, onEdit, onDelete }: EntryRowProps) {
   const [open, setOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // A payroll entry is a real row with a deduction behind it, which is exactly
+  // what delete_paycheck_entry() needs to write its skip — so that id is what
+  // decides whether the delete is offered. A recurring entry is a projection
+  // with no row at all; the only way to stop one is to edit the expense.
+  const payrollAuto = transaction.auto && Boolean(transaction.incomeDeductionId);
+
+  const toggle = () => {
+    setOpen((v) => !v);
+    setConfirmDelete(false);
+  };
 
   return (
     <motion.li
@@ -28,7 +40,7 @@ export function EntryRow({ transaction, category, member, onEdit, onDelete }: En
       
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         aria-expanded={open}
         className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-canvas">
         
@@ -77,21 +89,22 @@ export function EntryRow({ transaction, category, member, onEdit, onDelete }: En
           transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
           className="overflow-hidden">
           
-            <div className="flex items-start justify-between gap-4 bg-canvas px-4 py-3">
+            <div className="flex flex-col gap-3 bg-canvas px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               <div className="min-w-0">
                 <p className="text-[13px] leading-relaxed text-ink/80">{transaction.description}</p>
                 <p className="mt-1 text-xs text-subtle">
                   {format(parseISO(transaction.date), 'EEEE, MMMM d, yyyy')}
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-1.5">
+              <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
                 {transaction.auto &&
-              <p className="max-w-[11rem] text-right text-[11px] leading-relaxed text-subtle">
+              <p className="text-[11px] leading-relaxed text-subtle sm:max-w-[13rem] sm:text-right">
                     {transaction.autoSource === 'recurring' ?
                 'Generated from a recurring expense. Edit the original entry to change it.' :
-                'Generated from a tagged paystub deduction. Edit it in Settings › Income.'}
+                'Generated from a tagged paystub deduction. Edit it in Settings › Income. Deleting removes this paycheck only — your income settings stay as they are.'}
                   </p>
               }
+                <div className="flex items-center gap-1.5">
                 {!transaction.auto && onEdit &&
               <button
                 type="button"
@@ -112,6 +125,22 @@ export function EntryRow({ transaction, category, member, onEdit, onDelete }: En
                     <Trash2Icon className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>
               }
+                {payrollAuto && onDelete &&
+              <button
+                type="button"
+                onClick={() => confirmDelete ? onDelete(transaction.id) : setConfirmDelete(true)}
+                onBlur={() => setConfirmDelete(false)}
+                className={`flex items-center gap-1.5 rounded-control border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                confirmDelete ?
+                'border-alert bg-alert text-white' :
+                'border-line bg-surface text-alert hover:bg-alert/5'}`
+                }>
+
+                    <Trash2Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                    {confirmDelete ? 'Tap to confirm' : 'Delete this one'}
+                  </button>
+              }
+                </div>
               </div>
             </div>
           </motion.div>

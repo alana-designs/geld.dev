@@ -13,6 +13,20 @@ export interface ReleaseNote {
 /** Newest first. */
 export const releases: ReleaseNote[] = [
 {
+  id: 'r-2026-10-18',
+  version: '1.2',
+  date: '2026-10-18',
+  title: 'Delete a paycheck savings entry',
+  summary:
+  'Savings entries that come from your paycheck can now be removed one at a time \u2014 handy when a pay period went in at the wrong rate. Your income settings are left exactly as they were.',
+  items: [
+  'Open any entry tagged \u201cAuto \u00b7 from paycheck\u201d in Activity or on the dashboard and tap Delete this one.',
+  'It only affects that pay date. Every other payday keeps generating as before.',
+  'Nothing changes in Settings \u203a Income \u2014 the deduction keeps its amount.',
+  'The entry stays gone: it won\u2019t come back the next time entries are generated.',]
+
+},
+{
   id: 'r-2026-10-07',
   version: '1.1',
   date: '2026-10-07',

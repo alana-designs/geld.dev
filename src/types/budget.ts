@@ -38,6 +38,10 @@ export interface Transaction {
    *  reconciliation (that money was never spendable cash); recurring-expense
    *  entries are real projected spending and count normally. */
   autoSource?: 'income' | 'recurring';
+  /** The paycheck deduction behind an `autoSource: 'income'` entry. Set only
+   *  on real rows, so it's what tells a payroll entry (deletable, one pay date
+   *  at a time) apart from a recurring projection (no row to delete). */
+  incomeDeductionId?: string;
 }
 
 export interface AuthUser {

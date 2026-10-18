@@ -158,6 +158,27 @@ export interface Database {
         };
         Relationships: [];
       };
+      /** One row per payroll auto-entry its owner deleted by hand (migration 0015). */
+      paycheck_entry_skips: {
+        Row: {
+          id: string;
+          user_id: string;
+          income_deduction_id: string;
+          date: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          income_deduction_id: string;
+          date: string;
+          created_at?: string;
+        };
+        Update: {
+          date?: string;
+        };
+        Relationships: [];
+      };
       income_sources: {
         Row: {
           id: string;
@@ -257,6 +278,8 @@ export interface Database {
         Args: { p_invite_id: string };
         Returns: string;
       };
+      /** Deletes one generated payroll entry and records a skip for that pay date. */
+      delete_paycheck_entry: { Args: { p_transaction_id: string }; Returns: void };
       goal_for_month: {
         Args: { p_category_id: string; p_month: string };
         Returns: number;

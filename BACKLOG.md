@@ -4,7 +4,7 @@ Product improvement ideas and future work. Add to this whenever an idea comes up
 
 ## Now / Next
 
-- _(nothing queued — pick from the backlog below)_
+- **Editing an income source silently deletes its payroll history.** `saveIncomeSource()` handles an edit by deleting every `income_deductions` row for that source and re-inserting them with new ids. `transactions.income_deduction_id` is `ON DELETE CASCADE`, so every auto savings entry that deduction ever generated is destroyed with it — no warning, no undo. The documented July/August 2026 backfill is already gone this way; there are zero `source = 'auto'` rows left as of 2026-10-18. Fix: upsert deductions by id (update existing, insert new, delete only the ones actually removed) instead of delete-and-reinsert. Worth considering `ON DELETE SET NULL` as a belt-and-braces second line, since a past entry is a historical fact even after the deduction behind it is gone.
 
 ## Backlog
 
@@ -24,7 +24,17 @@ Product improvement ideas and future work. Add to this whenever an idea comes up
 
 ## Shipped
 
-- **Excel export of your own activity (2026-10-07, v1.1)** — Export button in the Activity header (own tab only) downloads a `.xlsx` with one sheet per month that has activity. `buildMonthSheets()` in `src/utils/export.ts` filters everything to `selfId` up front, so household members' rows can never reach the file. Includes manual entries, recurring projections and payroll savings (labelled in a Source column). Replaces the earlier multi-member `buildExportRows()`. Changelog entry added. Still open: CSV variant, date-range picker.
+- **Delete one payroll savings entry (2026-10-18, v1.2, migration 0015)** — expand an `Auto · from paycheck` entry in Activity or on the Dashboard and "Delete this one" removes it. `delete_paycheck_entry()` writes a `paycheck_entry_skips` tombstone and deletes the transaction in one statement, so `generate_paycheck_entries()` won't re-post it; everything is scoped to that single pay date, and the income source and its deductions are untouched. Also closed a hole 0012 left open: `generate_paycheck_entries()` was callable over REST by anon and authenticated. Changelog entry added. Still open: no undo (a skip can only be removed in SQL), and no way to *correct* an entry's amount — delete is the only lever.
+
+- **Excel export of your own activity (2026-10-07, v1.1)** — Export button in the Activity header (own tab only) downloads a `.xlsx` with one sheet per month that has activity. `buildMonthSheets()` in `src/utils/export.ts` filters everything to `selfId` up front, so household members' rows can never reach the file. Includes manual entries, recurring projections and payroll savings (labelled in a Source column). Replaces the earlier multi-member `buildExportRows()`. Changelog entry added. Free-text column is labelled "Note". Still open: CSV variant, date-range picker.
+
+- **Semimonthly pay date picker (2026-08-31, migrations 0010–0014)** — salaried income sources now store which pair of semimonthly days the paycheck lands on ('first_fifteenth' or 'fifteenth_last'). Old hardcoded 15th/last assumption gone. Existing rows backfilled to 'fifteenth_last'. Also fixed double-counting: client-side `generateAutoEntries()` / `payDatesInMonth()` deleted; server-side `generate_paycheck_entries()` (pg_cron, 0012–0013) is now the sole source of payroll auto-savings rows.
+
+- **In-app changelog (2026-08-19)** — `WhatsNewCard` at foot of desktop sidebar + Settings row for mobile. `ChangelogModal` lists releases newest-first from `src/data/changelog.ts`. "Unread" dot tracked via localStorage.
+
+- **Responsive nav + layout (2026-08-17)** — `SideRail` (desktop fixed left nav), `AddExpenseButton` (desktop, next to MonthPicker), `TopCategories` "Where it's going" widget (top 5 spend categories with goal bars). `SpendTrend.tsx` removed. App renamed "Geld" throughout.
+
+- **Hourly income (2026-08-17, migration 0004)** — "Add income" opens with Salaried vs. Hourly choice. Hourly paychecks are one-per-source with a received date; count toward the month received, no payroll auto-savings. Settings gets a MonthPicker for hourly paycheck filtering. `monthlyNet()` is now month-aware.
 
 - **`ensure_profile()` self-heal (2026-08-22, migration 0009)** — an `auth.users` row with no `profiles` row used to be a permanently stuck account, since `handle_new_user()` only fires on INSERT and the load path called `.single()`. The client now uses `maybeSingle()` and calls `ensure_profile()` on a miss, which rebuilds a household of one. Idempotent, advisory-locked per user. Create path is not yet exercised end-to-end — see the note in KNOWLEDGE.md.
 

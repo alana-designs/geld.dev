@@ -180,7 +180,8 @@ const mapTransaction = (row: TransactionRow): Transaction => ({
   // Posted server-side by generate_paycheck_entries() (migrations 0012/0013),
   // never typed in — flagged so they render read-only and stay out of spend.
   auto: row.source === 'auto',
-  autoSource: row.source === 'auto' ? 'income' : undefined
+  autoSource: row.source === 'auto' ? 'income' : undefined,
+  incomeDeductionId: row.income_deduction_id ?? undefined
 });
 
 /** Payroll savings: a real row, but never spending — that money was never
@@ -795,18 +796,30 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     [profile]
   );
 
+  // Payroll entries can't just be deleted: the row itself is what stops
+  // generate_paycheck_entries() posting it again, so the server has to write a
+  // skip for that one pay date in the same transaction. delete_paycheck_entry()
+  // (migration 0015) does both. Everything else is a plain delete.
   const deleteTransaction = useCallback(
     async (id: string) => {
       if (!profile) return;
-      const { error } = await supabase.
-      from('transactions').
-      delete().
-      eq('id', id).
-      eq('user_id', profile.id);
-      if (error) throw error;
+      const row = rawTransactions.find((tx) => tx.id === id);
+
+      if (row?.source === 'auto' && row.income_deduction_id) {
+        const { error } = await supabase.rpc('delete_paycheck_entry', { p_transaction_id: id });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.
+        from('transactions').
+        delete().
+        eq('id', id).
+        eq('user_id', profile.id);
+        if (error) throw error;
+      }
+
       setRawTransactions((prev) => prev.filter((tx) => tx.id !== id));
     },
-    [profile]
+    [profile, rawTransactions]
   );
 
   const addCategory = useCallback(
