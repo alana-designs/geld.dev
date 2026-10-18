@@ -22,6 +22,43 @@ export function setRememberMe(remember: boolean) {
   window.localStorage.setItem(REMEMBER_KEY, String(remember));
 }
 
+// Where to send someone back to once they finish signing in. The login page
+// records the page they were actually after; a magic link opened in a
+// different browser won't have it, so we fall back to the dashboard.
+const POST_AUTH_KEY = 'expense-tracker:post-auth-path';
+
+export function setPostAuthPath(path: string) {
+  if (path && path !== '/login') {
+    window.sessionStorage.setItem(POST_AUTH_KEY, path);
+  } else {
+    window.sessionStorage.removeItem(POST_AUTH_KEY);
+  }
+}
+
+export function authRedirectTo(): string {
+  return window.location.origin + readPostAuthPath();
+}
+
+function readPostAuthPath(): string {
+  const path = window.sessionStorage.getItem(POST_AUTH_KEY);
+  // Only ever an in-app path, never a full URL — an attacker-supplied value in
+  // here shouldn't be able to bounce a freshly signed-in session off-site.
+  return path && path.startsWith('/') && !path.startsWith('//') ? path : '/';
+}
+
+/** Read the intended destination once, then forget it. */
+export function consumePostAuthPath(): string {
+  const path = readPostAuthPath();
+  window.sessionStorage.removeItem(POST_AUTH_KEY);
+  return path;
+}
+
+/** True while an OAuth or magic-link callback is still being exchanged. */
+export function hasAuthCallback(): boolean {
+  const { search, hash } = window.location;
+  return /(^|[?&#])(code|access_token|error|error_description)=/.test(search + hash);
+}
+
 // Routes the Supabase session to localStorage (persists indefinitely, across
 // browser restarts, until sign-out or cache is cleared) or sessionStorage
 // (cleared as soon as the tab/browser closes), based on the remember-me flag

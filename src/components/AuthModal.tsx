@@ -1,34 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeftIcon, CheckIcon, LoaderIcon, LogOutIcon, MailIcon, XIcon } from 'lucide-react';
+import { CheckIcon, LogOutIcon, MailIcon, XIcon } from 'lucide-react';
 
+/**
+ * The account panel for someone who is already signed in. Signing in itself
+ * now happens on the /login screen, so this never has to handle a signed-out
+ * state.
+ */
 interface AuthModalProps {
   open: boolean;
   onClose: () => void;
-  onSendMagicLink: (email: string, remember?: boolean) => Promise<{ error: string | null }>;
   signedInEmail?: string | null;
   onSignOut?: () => void;
   name?: string | null;
   onSaveName?: (name: string) => Promise<void>;
 }
 
-type Stage = 'email' | 'sending' | 'sent';
-
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 export function AuthModal({
   open,
   onClose,
-  onSendMagicLink,
   signedInEmail,
   onSignOut,
   name,
   onSaveName
 }: AuthModalProps) {
-  const [email, setEmail] = useState('');
-  const [stage, setStage] = useState<Stage>('email');
-  const [error, setError] = useState<string | null>(null);
-  const [remember, setRemember] = useState(true);
   const [nameDraft, setNameDraft] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
@@ -41,16 +36,6 @@ export function AuthModal({
       setNameSaved(false);
     }
   }, [open, name]);
-
-  useEffect(() => {
-    if (!open) {
-      const t = setTimeout(() => {
-        setStage('email');
-        setError(null);
-      }, 250);
-      return () => clearTimeout(t);
-    }
-  }, [open]);
 
   const saveName = async () => {
     const trimmed = nameDraft.trim();
@@ -74,23 +59,6 @@ export function AuthModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!emailPattern.test(email.trim())) {
-      setError('Enter a valid email address.');
-      return;
-    }
-    setError(null);
-    setStage('sending');
-    const { error: sendError } = await onSendMagicLink(email.trim(), remember);
-    if (sendError) {
-      setError(sendError);
-      setStage('email');
-      return;
-    }
-    setStage('sent');
-  };
-
   return (
     <AnimatePresence>
       {open &&
@@ -99,12 +67,12 @@ export function AuthModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}>
-        
+
           <div
           className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]"
           onClick={onClose}
           aria-hidden="true" />
-        
+
           <motion.div
           role="dialog"
           aria-modal="true"
@@ -115,37 +83,36 @@ export function AuthModal({
           transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
           className="relative w-full max-w-md rounded-t-2xl border border-line bg-surface p-6 sm:rounded-2xl"
           style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
-          
+
             <button
             type="button"
             onClick={onClose}
             aria-label="Close"
             className="absolute right-4 top-4 rounded-full p-1.5 text-subtle transition-colors hover:bg-canvas hover:text-ink">
-            
+
               <XIcon className="h-4 w-4" aria-hidden="true" />
             </button>
 
-            {signedInEmail ?
-          <div className="pt-1">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-canvas text-ink">
-                  <MailIcon className="h-5 w-5" aria-hidden="true" />
-                </div>
-                <h2 id="auth-title" className="mt-4 text-xl font-semibold tracking-[-0.02em] text-ink">
-                  Signed in
-                </h2>
-                <p className="mt-1.5 text-sm text-muted">
-                  Your ledger is tied to{' '}
-                  <span className="font-medium text-ink">{signedInEmail}</span>.
-                </p>
+            <div className="pt-1">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-canvas text-ink">
+                <MailIcon className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <h2 id="auth-title" className="mt-4 text-xl font-semibold tracking-[-0.02em] text-ink">
+                Signed in
+              </h2>
+              <p className="mt-1.5 text-sm text-muted">
+                Your ledger is tied to{' '}
+                <span className="font-medium text-ink">{signedInEmail}</span>.
+              </p>
 
-                <label htmlFor="profile-name" className="mt-5 block text-xs font-medium text-muted">
-                  First name
-                </label>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-subtle">
-                  Shown to household members instead of your email.
-                </p>
-                <div className="mt-1.5 flex gap-2">
-                  <input
+              <label htmlFor="profile-name" className="mt-5 block text-xs font-medium text-muted">
+                First name
+              </label>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-subtle">
+                Shown to household members instead of your email.
+              </p>
+              <div className="mt-1.5 flex gap-2">
+                <input
                 id="profile-name"
                 value={nameDraft}
                 onChange={(e) => {
@@ -156,18 +123,18 @@ export function AuthModal({
                 placeholder="e.g. Alana"
                 className="min-w-0 flex-1 rounded-control border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-subtle focus:border-ink" />
 
-                  <button
+                <button
                 type="button"
                 onClick={saveName}
                 disabled={nameSaving || !nameDraft.trim() || nameDraft.trim() === name}
                 className="shrink-0 rounded-control bg-primary px-3 text-xs font-semibold text-white transition-transform active:scale-[0.98] disabled:opacity-40">
 
-                    {nameSaving ? '…' : nameSaved ? <CheckIcon className="h-4 w-4" aria-hidden="true" /> : 'Save'}
-                  </button>
-                </div>
-                {nameError && <p className="mt-1.5 text-xs text-alert">{nameError}</p>}
+                  {nameSaving ? '…' : nameSaved ? <CheckIcon className="h-4 w-4" aria-hidden="true" /> : 'Save'}
+                </button>
+              </div>
+              {nameError && <p className="mt-1.5 text-xs text-alert">{nameError}</p>}
 
-                <button
+              <button
               type="button"
               onClick={() => {
                 onSignOut?.();
@@ -175,96 +142,10 @@ export function AuthModal({
               }}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-control border border-line py-3 text-sm font-semibold text-ink transition-colors hover:bg-canvas">
 
-                  <LogOutIcon className="h-4 w-4" aria-hidden="true" />
-                  Sign out
-                </button>
-              </div> :
-          stage === 'sent' ?
-          <div className="pt-1 text-center">
-                <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-needs/10 text-needs">
-                  <CheckIcon className="h-5 w-5" aria-hidden="true" />
-                </div>
-                <h2 id="auth-title" className="mt-4 text-xl font-semibold tracking-[-0.02em] text-ink">
-                  Check your inbox
-                </h2>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted">
-                  We sent a magic link to <span className="font-medium text-ink">{email}</span>. Open
-                  it on this device and you&rsquo;ll be signed straight in — this closes on its own.
-                </p>
-                <button
-              type="button"
-              onClick={() => setStage('email')}
-              className="mx-auto mt-5 flex items-center gap-1.5 text-xs font-medium text-subtle hover:text-ink">
-              
-                  <ArrowLeftIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                  Use a different email
-                </button>
-              </div> :
-
-          <form onSubmit={submit} className="pt-1">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-canvas text-ink">
-                  <MailIcon className="h-5 w-5" aria-hidden="true" />
-                </div>
-                <h2 id="auth-title" className="mt-4 text-xl font-semibold tracking-[-0.02em] text-ink">
-                  Sign in to your ledger
-                </h2>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted">
-                  No password. We&rsquo;ll email you a one-time link — your entries stay tied to
-                  this address.
-                </p>
-
-                <label htmlFor="auth-email" className="mt-5 block text-xs font-medium text-muted">
-                  Email address
-                </label>
-                <input
-              id="auth-email"
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              aria-invalid={Boolean(error)}
-              aria-describedby={error ? 'auth-error' : undefined}
-              className="mt-1.5 w-full rounded-control border border-line bg-surface px-3 py-3 text-[15px] text-ink outline-none transition-colors placeholder:text-subtle focus:border-ink" />
-            
-                {error &&
-            <p id="auth-error" className="mt-2 text-xs text-alert">
-                    {error}
-                  </p>
-            }
-
-                <label className="mt-3 flex items-center gap-2 text-xs font-medium text-muted">
-                  <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-                className="h-4 w-4 rounded border-line text-primary accent-primary" />
-
-                  Stay signed in on this device
-                </label>
-
-                <button
-              type="submit"
-              disabled={stage === 'sending'}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-control bg-primary py-3 text-sm font-semibold text-white transition-transform active:scale-[0.99] disabled:opacity-70">
-              
-                  {stage === 'sending' ?
-              <>
-                      <LoaderIcon className="h-4 w-4 animate-spin" aria-hidden="true" />
-                      Sending link&hellip;
-                    </> :
-
-              'Email me a magic link'
-              }
-                </button>
-
-                <p className="mt-4 text-center text-[11px] leading-relaxed text-subtle">
-                  This app never connects to a bank. Every dollar in it gets typed in on purpose.
-                </p>
-              </form>
-          }
+                <LogOutIcon className="h-4 w-4" aria-hidden="true" />
+                Sign out
+              </button>
+            </div>
           </motion.div>
         </motion.div>
       }

@@ -8,7 +8,7 @@ import {
   ReactNode } from
 'react';
 import type { Session } from '@supabase/supabase-js';
-import { supabase, setRememberMe } from '../lib/supabase';
+import { authRedirectTo, supabase, setRememberMe } from '../lib/supabase';
 import { Database } from '../lib/database.types';
 import { AuthUser, Category, Member, ParentCategory, Transaction } from '../types/budget';
 import { Deduction, IncomeSource, TaxLine } from '../types/income';
@@ -80,6 +80,7 @@ interface BudgetContextValue {
   user: AuthUser | null;
   loading: boolean;
   sendMagicLink: (email: string, remember?: boolean) => Promise<{ error: string | null }>;
+  signInWithGoogle: (remember?: boolean) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   setupComplete: boolean;
   completeSetup: () => Promise<void>;
@@ -508,7 +509,20 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     setRememberMe(remember);
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin }
+      options: { emailRedirectTo: authRedirectTo() }
+    });
+    return { error: error?.message ?? null };
+  }, []);
+
+  // Google and magic link land on the same account: Supabase links identities
+  // that share a verified email, so someone who has only ever used the emailed
+  // link keeps the same user id -- and therefore the same profile, household
+  // and history -- the first time they come in through Google.
+  const signInWithGoogle = useCallback(async (remember = true) => {
+    setRememberMe(remember);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: authRedirectTo() }
     });
     return { error: error?.message ?? null };
   }, []);
@@ -1106,6 +1120,7 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
       user,
       loading,
       sendMagicLink,
+      signInWithGoogle,
       signOut,
       setupComplete,
       completeSetup,
@@ -1162,6 +1177,7 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     user,
     loading,
     sendMagicLink,
+    signInWithGoogle,
     signOut,
     setupComplete,
     completeSetup,

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import { UserIcon } from 'lucide-react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { LoaderIcon, UserIcon } from 'lucide-react';
 import { BudgetProvider, useBudget } from './contexts/BudgetContext';
+import { consumePostAuthPath, hasAuthCallback, setPostAuthPath } from './lib/supabase';
 import { BottomNav } from './components/BottomNav';
 import { SideRail } from './components/SideRail';
 import { EntrySheet } from './components/EntrySheet';
@@ -10,13 +11,60 @@ import { OnboardingSetup } from './components/OnboardingSetup';
 import { Dashboard } from './pages/Dashboard';
 import { Activity } from './pages/Activity';
 import { Budget } from './pages/Budget';
+import { Login } from './pages/Login';
 import { Settings } from './pages/Settings';
+
+function Splash() {
+  return (
+    <div className="flex min-h-full w-full items-center justify-center bg-canvas">
+      <LoaderIcon className="h-5 w-5 animate-spin text-subtle" aria-hidden="true" />
+      <span className="sr-only">Loading</span>
+    </div>
+  );
+}
+
+/**
+ * Decides between the login screen and the app. Signed-out visitors are sent
+ * to /login with the page they were after remembered, so they land back on it
+ * once the session arrives.
+ */
+function Gate() {
+  const { user, loading } = useBudget();
+  const location = useLocation();
+
+  // Coming back from Google or an emailed link, the session isn't in place for
+  // the first moment or two while the callback is exchanged. Hold the splash
+  // rather than flashing the login screen at someone who just signed in.
+  const [settling, setSettling] = useState(hasAuthCallback);
+  useEffect(() => {
+    if (!settling) return;
+    if (user) {
+      setSettling(false);
+      return;
+    }
+    const t = setTimeout(() => setSettling(false), 5000);
+    return () => clearTimeout(t);
+  }, [settling, user]);
+
+  const atLogin = location.pathname === '/login';
+
+  if (loading || settling) return <Splash />;
+
+  if (!user) {
+    if (atLogin) return <Login />;
+    setPostAuthPath(location.pathname + location.search);
+    return <Navigate to="/login" replace />;
+  }
+
+  if (atLogin) return <Navigate to={consumePostAuthPath()} replace />;
+
+  return <Shell />;
+}
 
 function Shell() {
   const {
     user,
     loading,
-    sendMagicLink,
     signOut,
     setupComplete,
     canEdit,
@@ -27,20 +75,6 @@ function Shell() {
   } = useBudget();
   const [addOpen, setAddOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
-
-  // First run: claim the ledger with an email before anything else.
-  useEffect(() => {
-    if (!loading && !user) {
-      const t = setTimeout(() => setAuthOpen(true), 500);
-      return () => clearTimeout(t);
-    }
-  }, [user, loading]);
-
-  // Real sign-in happens asynchronously (the user opens the emailed link,
-  // maybe on another tab) — close the modal reactively once a session lands.
-  useEffect(() => {
-    if (user) setAuthOpen(false);
-  }, [user]);
 
   const needsSetup = Boolean(user) && !loading && !setupComplete;
 
@@ -87,7 +121,6 @@ function Shell() {
         onClose={() => setAuthOpen(false)}
         signedInEmail={user?.email ?? null}
         onSignOut={signOut}
-        onSendMagicLink={sendMagicLink}
         name={selfName}
         onSaveName={updateMyName} />
 
@@ -101,7 +134,7 @@ export function App() {
   return (
     <BudgetProvider>
       <BrowserRouter>
-        <Shell />
+        <Gate />
       </BrowserRouter>
     </BudgetProvider>);
 

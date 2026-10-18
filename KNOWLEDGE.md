@@ -95,6 +95,20 @@ A manual-entry-only household budget tracker. Core thesis: bank-linking/auto-imp
 
 A `profiles` row and its `auth.users` row must be deleted in that order — deleting the profile alone leaves a working login with no app data, and `handle_new_user()` only fires on INSERT, so it never backfills. That user then hits `.single()` on a missing profile and the app sticks on a blank screen with no recovery. Delete from **Authentication → Users** (which cascades to profiles), never from the Table Editor. Two test accounts hit this on 2026-08-22 and were cleaned up. Migration 0009 adds `ensure_profile()`: the load path in `BudgetContext` uses `maybeSingle()` and calls it when the profile fetch comes back empty, creating a fresh household of one. It's idempotent, and takes a per-user advisory lock so two tabs opening at once can't create two households. It deliberately does not try to restore prior membership — the old rows went with the deleted profile, and rejoining is an invite away.
 
+## Sign-in: Google + magic link (2026-10-18)
+
+Two ways in, one account. `/login` is a real route (`Gate` in `App.tsx`): signed-out visitors are redirected there with the path they were after stashed in `sessionStorage`, and bounced back to it once a session lands. `AuthModal` is now only the signed-in account panel — it no longer handles signing in.
+
+**Existing magic-link accounts are not disrupted.** Supabase Auth automatically links a new identity to an existing user when the email matches and both sides are verified (Google always returns a verified email; magic-link accounts are confirmed by definition). So an established user signing in with Google for the first time keeps the same `auth.users.id`, and therefore the same `profiles` row, household, and history. No new row is inserted into `auth.users`, so `handle_new_user()` does **not** fire for them.
+
+The one real failure mode: someone whose Google address differs from the email they originally signed up with gets a genuinely separate account and an empty household. Nothing in Supabase can detect that — the login copy should steer people to the address they already use.
+
+Migration 0017 (applied 2026-10-18) adds `signup_display_name()` and rewires `handle_new_user()` to prefer Google's `given_name` (then the first word of `full_name`/`name`) over the email's local part. New accounts only; it cannot touch anyone who already exists. Magic-link signups carry no such metadata, so they still get the email's local part exactly as before.
+
+**Drift caught while writing it, worth remembering:** `handle_new_user()` in `0001_init.sql` still contains the original "join whichever household has a pending invite for this email" branch. That branch was deleted by 0005 and is *not* in the live database. A `create or replace` written from the 0001 file would have silently restored it — reopening the exact capture hole 0005 closed, where anyone who inserted an invite for an address could absorb that person's signup with no accept or confirm step. 0017 is written from `pg_get_functiondef()` on the live function instead, and says so in its header. Read the live definition before replacing any function whose file history spans a security migration.
+
+**Dashboard config this depends on** (not in migrations, set by hand): Google enabled under Authentication → Providers with a Google Cloud OAuth client, and Site URL / Redirect URLs covering `https://geld.dev/**` plus `http://localhost:5173/**` for local work.
+
 ## Security posture (audit 2026-08-20)
 
 Fixed in 0005–0007:
