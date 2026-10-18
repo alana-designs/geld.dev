@@ -13,6 +13,20 @@ export interface ReleaseNote {
 /** Newest first. */
 export const releases: ReleaseNote[] = [
 {
+  id: 'r-2026-10-18-income-edit',
+  version: '1.2.1',
+  date: '2026-10-18',
+  title: 'Editing a paycheck keeps your savings history',
+  summary:
+  'Changing anything in Settings › Income used to quietly delete every savings entry your paycheck had already generated. It no longer does — and entries that are already posted now survive even if you remove the deduction behind them.',
+  items: [
+  'Edit a paycheck as often as you like — amounts, labels, pay dates — and your past savings entries stay put.',
+  'Removing a deduction keeps the entries it already generated. Past paydays really happened, so they stay in your activity.',
+  'Those leftover entries can still be deleted one at a time, the same way as before.',
+  'Heads up: savings entries from July and August 2026 were lost to this bug before it was found, and have not been restored.',]
+
+},
+{
   id: 'r-2026-10-18',
   version: '1.2',
   date: '2026-10-18',

@@ -19,11 +19,14 @@ export function EntryRow({ transaction, category, member, onEdit, onDelete }: En
   const [open, setOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // A payroll entry is a real row with a deduction behind it, which is exactly
-  // what delete_paycheck_entry() needs to write its skip — so that id is what
-  // decides whether the delete is offered. A recurring entry is a projection
-  // with no row at all; the only way to stop one is to edit the expense.
-  const payrollAuto = transaction.auto && Boolean(transaction.incomeDeductionId);
+  // A payroll entry is a real row, so it can be deleted; a recurring entry is
+  // a projection with no row at all, and the only way to stop one is to edit
+  // the expense. `autoSource` is what separates them. Deliberately *not*
+  // keyed on `incomeDeductionId`: since 0016 that link is nulled when the
+  // deduction behind it is deleted, and an orphaned entry still has a row and
+  // still has to be deletable (deleteTransaction routes it to a plain delete
+  // rather than delete_paycheck_entry, which needs a deduction to tombstone).
+  const payrollAuto = transaction.auto && transaction.autoSource === 'income';
 
   const toggle = () => {
     setOpen((v) => !v);

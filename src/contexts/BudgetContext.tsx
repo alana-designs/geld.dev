@@ -197,6 +197,16 @@ const mapDeduction = (row: IncomeDeductionRow): Deduction => ({
   categoryId: row.category_id ?? undefined
 });
 
+/** App shape -> DB columns for one deduction, minus `income_source_id`
+ *  (the caller already knows which source it is writing). */
+const deductionColumns = (d: Deduction, phase: 'pre_tax' | 'post_tax') => ({
+  phase,
+  label: d.label,
+  amount: d.amount,
+  tag: d.tag,
+  category_id: d.categoryId ?? null
+});
+
 const mapTaxLine = (row: IncomeTaxLineRow): TaxLine => ({
   id: row.id,
   label: row.label,
@@ -978,31 +988,73 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
         if (error) throw error;
         setRawIncomeSources((prev) => prev.map((s) => s.id === source.id ? data : s));
 
-        const [delDed, delTax] = await Promise.all([
-        supabase.from('income_deductions').delete().eq('income_source_id', source.id),
-        supabase.from('income_tax_lines').delete().eq('income_source_id', source.id)]
-        );
-        if (delDed.error) throw delDed.error;
-        if (delTax.error) throw delTax.error;
+        // Tax lines are still replaced wholesale, which is safe because
+        // nothing references `income_tax_lines.id` — churning those ids costs
+        // nothing. Deductions are *not* safe to replace that way; see the
+        // reconcile below. If anything ever hangs off a tax line, this has to
+        // become a reconcile too.
+        const { error: delTaxError } = await supabase.
+        from('income_tax_lines').
+        delete().
+        eq('income_source_id', source.id);
+        if (delTaxError) throw delTaxError;
       }
 
-      const deductionRows = [
-      ...source.preTax.map((d) => ({
-        income_source_id: incomeSourceId,
-        phase: 'pre_tax' as const,
-        label: d.label,
-        amount: d.amount,
-        tag: d.tag,
-        category_id: d.categoryId ?? null
-      })),
-      ...source.postTax.map((d) => ({
-        income_source_id: incomeSourceId,
-        phase: 'post_tax' as const,
-        label: d.label,
-        amount: d.amount,
-        tag: d.tag,
-        category_id: d.categoryId ?? null
-      }))];
+      // A deduction's id is the anchor for every payroll entry it ever
+      // generated (`transactions.income_deduction_id`) and for every skip
+      // tombstone, both of which cascade. Delete-and-reinsert therefore wiped
+      // a source's whole payroll history on an ordinary edit. Reconcile by id
+      // instead: update the rows that still exist, insert the genuinely new
+      // ones, and delete only what the user actually removed.
+      const incoming = [
+      ...source.preTax.map((d) => ({ id: d.id, row: deductionColumns(d, 'pre_tax') })),
+      ...source.postTax.map((d) => ({ id: d.id, row: deductionColumns(d, 'post_tax') }))];
+
+      // What the DB actually holds for this source. Anything else is an
+      // insert: a `d-…`/`pt-…` id minted in the sheet for a row that was
+      // never saved, or a row someone deleted in another tab.
+      const storedIds = new Set(
+        isNew ?
+        [] :
+        rawDeductions.filter((d) => d.income_source_id === incomeSourceId).map((d) => d.id)
+      );
+
+      const toUpdate = incoming.filter((d) => storedIds.has(d.id));
+      const toInsert = incoming.filter((d) => !storedIds.has(d.id));
+      const keptIds = new Set(toUpdate.map((d) => d.id));
+      const removedIds = [...storedIds].filter((id) => !keptIds.has(id));
+
+      // `.select()` rather than `.single()`: a row that disappeared from under
+      // us comes back as zero rows instead of throwing, and drops out of local
+      // state below.
+      const updateResults = await Promise.all(
+        toUpdate.map((d) =>
+        supabase.from('income_deductions').update(d.row).eq('id', d.id).select()
+        )
+      );
+      for (const res of updateResults) {
+        if (res.error) throw res.error;
+      }
+
+      let insertedDeductions: IncomeDeductionRow[] = [];
+      if (toInsert.length) {
+        const { data, error } = await supabase.
+        from('income_deductions').
+        insert(toInsert.map((d) => ({ income_source_id: incomeSourceId, ...d.row }))).
+        select();
+        if (error) throw error;
+        insertedDeductions = data ?? [];
+      }
+
+      // The only delete left, and the only one that *should* take payroll
+      // entries with it: the user removed this deduction outright.
+      if (removedIds.length) {
+        const { error } = await supabase.
+        from('income_deductions').
+        delete().
+        in('id', removedIds);
+        if (error) throw error;
+      }
 
       const taxRows = source.taxes.map((t) => ({
         income_source_id: incomeSourceId,
@@ -1010,27 +1062,27 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
         amount: t.amount
       }));
 
-      const [dedRes, taxRes] = await Promise.all([
-      deductionRows.length ?
-      supabase.from('income_deductions').insert(deductionRows).select() :
-      Promise.resolve({ data: [] as IncomeDeductionRow[], error: null }),
-      taxRows.length ?
-      supabase.from('income_tax_lines').insert(taxRows).select() :
-      Promise.resolve({ data: [] as IncomeTaxLineRow[], error: null })]
-      );
-      if (dedRes.error) throw dedRes.error;
+      const taxRes = taxRows.length ?
+      await supabase.from('income_tax_lines').insert(taxRows).select() :
+      { data: [] as IncomeTaxLineRow[], error: null };
       if (taxRes.error) throw taxRes.error;
+
+      // Rebuilt from what the DB returned, not from what we sent, so the
+      // wholesale-replace assumption is gone from local state too.
+      const savedDeductions = [
+      ...updateResults.flatMap((res) => res.data ?? []),
+      ...insertedDeductions];
 
       setRawDeductions((prev) => [
       ...prev.filter((d) => d.income_source_id !== incomeSourceId),
-      ...(dedRes.data ?? [])]
+      ...savedDeductions]
       );
       setRawTaxLines((prev) => [
       ...prev.filter((t) => t.income_source_id !== incomeSourceId),
       ...(taxRes.data ?? [])]
       );
     },
-    [profile, rawIncomeSources]
+    [profile, rawIncomeSources, rawDeductions]
   );
 
   const deleteIncomeSource = useCallback(
