@@ -69,6 +69,11 @@ interface NewTransaction {
   recurring?: boolean;
 }
 
+/** Recurring-calendar-invite semantics for a payroll entry correction:
+ *  'this' touches the one pay date, 'future' also moves the deduction so every
+ *  later payday is generated at the new amount. Neither reaches backwards. */
+export type PaycheckOverrideScope = 'this' | 'future';
+
 export interface CategoryPatch {
   name?: string;
   parent?: ParentCategory;
@@ -154,6 +159,11 @@ interface BudgetContextValue {
   addTransaction: (input: NewTransaction) => Promise<void>;
   updateTransaction: (id: string, patch: Partial<NewTransaction>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
+  overridePaycheckEntry: (
+    id: string,
+    patch: { amount: number; categoryId: string },
+    scope: PaycheckOverrideScope) =>
+  Promise<void>;
   addCategory: (name: string, parent: ParentCategory, monthlyGoal?: number) => Promise<Category>;
   updateCategory: (id: string, patch: CategoryPatch) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
@@ -182,7 +192,8 @@ const mapTransaction = (row: TransactionRow): Transaction => ({
   // never typed in — flagged so they render read-only and stay out of spend.
   auto: row.source === 'auto',
   autoSource: row.source === 'auto' ? 'income' : undefined,
-  incomeDeductionId: row.income_deduction_id ?? undefined
+  incomeDeductionId: row.income_deduction_id ?? undefined,
+  overridden: Boolean(row.overridden_at)
 });
 
 /** Payroll savings: a real row, but never spending — that money was never
@@ -846,6 +857,47 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     [profile, rawTransactions]
   );
 
+  // Correcting a payroll entry is the recurring-invite choice: 'this' fixes the
+  // one pay date, 'future' also moves the deduction so every later payday is
+  // generated at the new amount. override_paycheck_entry() (migration 0018)
+  // does both halves in one transaction and hands back every row it changed —
+  // which is how the carried-forward later entries get into local state too.
+  const overridePaycheckEntry = useCallback(
+    async (
+    id: string,
+    patch: {amount: number;categoryId: string;},
+    scope: PaycheckOverrideScope) =>
+    {
+      if (!profile) return;
+      const row = rawTransactions.find((tx) => tx.id === id);
+      const { data, error } = await supabase.rpc('override_paycheck_entry', {
+        p_transaction_id: id,
+        p_amount: patch.amount,
+        p_category_id: patch.categoryId,
+        p_apply_to_future: scope === 'future'
+      });
+      if (error) throw error;
+
+      const changed = data ?? [];
+      setRawTransactions((prev) =>
+      prev.map((tx) => changed.find((updated) => updated.id === tx.id) ?? tx)
+      );
+
+      // Carrying forward rewrote the deduction, which Settings › Income and
+      // the net-pay math read straight out of local state.
+      if (scope === 'future' && row?.income_deduction_id) {
+        setRawDeductions((prev) =>
+        prev.map((d) =>
+        d.id === row.income_deduction_id ?
+        { ...d, amount: patch.amount, category_id: patch.categoryId } :
+        d
+        )
+        );
+      }
+    },
+    [profile, rawTransactions]
+  );
+
   const addCategory = useCallback(
     async (name: string, parent: ParentCategory, monthlyGoal = 0): Promise<Category> => {
       if (!profile) throw new Error('Not signed in');
@@ -1165,6 +1217,7 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
       addTransaction,
       updateTransaction,
       deleteTransaction,
+      overridePaycheckEntry,
       addCategory,
       updateCategory,
       deleteCategory,
@@ -1220,6 +1273,7 @@ export function BudgetProvider({ children }: {children: ReactNode;}) {
     addTransaction,
     updateTransaction,
     deleteTransaction,
+    overridePaycheckEntry,
     addCategory,
     updateCategory,
     deleteCategory,

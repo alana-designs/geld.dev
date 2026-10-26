@@ -13,6 +13,21 @@ export interface ReleaseNote {
 /** Newest first. */
 export const releases: ReleaseNote[] = [
 {
+  id: 'r-2026-10-25-paycheck-override',
+  version: '1.3',
+  date: '2026-10-25',
+  title: 'Fix one paycheck without rewriting the rest',
+  summary:
+  'When a paycheck comes in different from what your deduction says, you can now correct that one entry — and decide whether the correction is a one-off or the new normal, the way you would with a repeating calendar invite.',
+  items: [
+  'Open any entry tagged “Auto · from paycheck” and tap Edit this one to change the amount, or which Savings bucket it lands in.',
+  'Saving asks whether it applies to just that paycheck, or to that one and every payday after it.',
+  '“This and all future” updates the deduction in Settings › Income, so later paydays generate at the new amount and your take-home follows.',
+  'Either way, paychecks before the one you edited are never touched.',
+  'Corrected entries are tagged “Edited”, and a later carry-forward leaves them exactly as you set them.']
+
+},
+{
   id: 'r-2026-10-18-income-edit',
   version: '1.2.1',
   date: '2026-10-18',

@@ -6,6 +6,7 @@ import { groupByDay, inMonth, monthLabel } from '../utils/rollups';
 import { formatCurrency } from '../utils/format';
 import { EntryRow } from '../components/EntryRow';
 import { EntrySheet } from '../components/EntrySheet';
+import { PaycheckEntrySheet } from '../components/PaycheckEntrySheet';
 import { MonthPicker } from '../components/MonthPicker';
 import { MemberTabs } from '../components/MemberTabs';
 import { AddExpenseButton } from '../components/AddExpenseButton';
@@ -36,6 +37,7 @@ export function Activity({ onAdd }: ActivityProps) {
   const [query, setQuery] = useState('');
   const [parent, setParent] = useState<ParentCategory | null>(null);
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const [editingPaycheck, setEditingPaycheck] = useState<Transaction | null>(null);
 
   const searching = query.trim().length > 0;
 
@@ -184,6 +186,7 @@ export function Activity({ onAdd }: ActivityProps) {
               category={categoryById(tx.categoryId)}
               member={isHousehold ? memberById(tx.memberId) : undefined}
               onEdit={canEdit ? setEditing : undefined}
+              onEditPaycheck={canEdit ? setEditingPaycheck : undefined}
               onDelete={canEdit ? deleteTransaction : undefined} />
 
             )}
@@ -193,6 +196,11 @@ export function Activity({ onAdd }: ActivityProps) {
         </div>
       }
 
+      <PaycheckEntrySheet
+        open={Boolean(editingPaycheck)}
+        transaction={editingPaycheck}
+        onClose={() => setEditingPaycheck(null)} />
+      
       <EntrySheet
         open={Boolean(editing)}
         transaction={editing}

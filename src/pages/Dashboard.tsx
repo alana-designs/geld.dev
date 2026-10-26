@@ -17,6 +17,7 @@ import { MonthPicker } from '../components/MonthPicker';
 import { TopCategories } from '../components/TopCategories';
 import { EntryRow } from '../components/EntryRow';
 import { EntrySheet } from '../components/EntrySheet';
+import { PaycheckEntrySheet } from '../components/PaycheckEntrySheet';
 import { MemberTabs } from '../components/MemberTabs';
 import { HouseholdBreakdown } from '../components/HouseholdBreakdown';
 import { AddExpenseButton } from '../components/AddExpenseButton';
@@ -44,6 +45,7 @@ export function Dashboard({ onAdd }: DashboardProps) {
   } = useBudget();
   const [activeParent, setActiveParent] = useState<ParentCategory | null>(null);
   const [editing, setEditing] = useState<Transaction | null>(null);
+  const [editingPaycheck, setEditingPaycheck] = useState<Transaction | null>(null);
 
   // Recurring-expense projections are real spending and count normally —
   // unlike payroll auto-entries below, which stay out of this reconciliation.
@@ -178,6 +180,7 @@ export function Dashboard({ onAdd }: DashboardProps) {
               category={categoryById(tx.categoryId)}
               member={isHousehold ? memberById(tx.memberId) : undefined}
               onEdit={canEdit ? setEditing : undefined}
+              onEditPaycheck={canEdit ? setEditingPaycheck : undefined}
               onDelete={canEdit ? deleteTransaction : undefined} />
 
             )}
@@ -195,6 +198,11 @@ export function Dashboard({ onAdd }: DashboardProps) {
         </Link>
       </section>
 
+      <PaycheckEntrySheet
+        open={Boolean(editingPaycheck)}
+        transaction={editingPaycheck}
+        onClose={() => setEditingPaycheck(null)} />
+      
       <EntrySheet
         open={Boolean(editing)}
         transaction={editing}

@@ -136,6 +136,8 @@ export interface Database {
           recurring: boolean;
           source: TransactionSource;
           income_deduction_id: string | null;
+          /** Set when a generated payroll entry was corrected by hand (migration 0018). */
+          overridden_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -280,6 +282,18 @@ export interface Database {
       };
       /** Deletes one generated payroll entry and records a skip for that pay date. */
       delete_paycheck_entry: { Args: { p_transaction_id: string }; Returns: void };
+      /** Corrects one generated payroll entry; optionally carries the change
+       *  forward onto the deduction so every later payday follows (0018).
+       *  Returns every transaction row it changed. */
+      override_paycheck_entry: {
+        Args: {
+          p_transaction_id: string;
+          p_amount: number;
+          p_category_id: string;
+          p_apply_to_future?: boolean;
+        };
+        Returns: Database['public']['Tables']['transactions']['Row'][];
+      };
       goal_for_month: {
         Args: { p_category_id: string; p_month: string };
         Returns: number;

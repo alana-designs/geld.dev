@@ -12,10 +12,20 @@ interface EntryRowProps {
   /** Shown only in the combined household view. */
   member?: Member;
   onEdit?: (transaction: Transaction) => void;
+  /** Payroll entries get their own editor — amount and bucket only, plus the
+   *  this-one-or-all-future question. */
+  onEditPaycheck?: (transaction: Transaction) => void;
   onDelete?: (id: string) => void;
 }
 
-export function EntryRow({ transaction, category, member, onEdit, onDelete }: EntryRowProps) {
+export function EntryRow({
+  transaction,
+  category,
+  member,
+  onEdit,
+  onEditPaycheck,
+  onDelete
+}: EntryRowProps) {
   const [open, setOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -70,6 +80,12 @@ export function EntryRow({ transaction, category, member, onEdit, onDelete }: En
                 {transaction.autoSource === 'recurring' ? 'Auto · from Expense' : 'Auto · from paycheck'}
               </span>
             }
+            {transaction.overridden &&
+            <span className="flex shrink-0 items-center gap-1 rounded-md bg-wants/10 px-1.5 py-0.5 text-[10px] font-medium text-wants">
+                <PencilIcon className="h-2.5 w-2.5" aria-hidden="true" />
+                Edited
+              </span>
+            }
             {transaction.recurring && !transaction.auto &&
             <span className="flex shrink-0 items-center gap-1 rounded-md bg-canvas px-1.5 py-0.5 text-[10px] font-medium text-subtle">
                 <RepeatIcon className="h-2.5 w-2.5" aria-hidden="true" />
@@ -104,7 +120,9 @@ export function EntryRow({ transaction, category, member, onEdit, onDelete }: En
               <p className="text-[11px] leading-relaxed text-subtle sm:max-w-[13rem] sm:text-right">
                     {transaction.autoSource === 'recurring' ?
                 'Generated from a recurring expense. Edit the original entry to change it.' :
-                'Generated from a tagged paystub deduction. Edit it in Settings › Income. Deleting removes this paycheck only — your income settings stay as they are.'}
+                transaction.overridden ?
+                'You corrected this paycheck by hand, so it no longer matches the deduction. Editing or deleting it affects this pay date only.' :
+                'Generated from a tagged paystub deduction. Edit it to correct what actually came off this paycheck — you choose whether that applies to this one or to every payday after it. Deleting removes this paycheck only.'}
                   </p>
               }
                 <div className="flex items-center gap-1.5">
@@ -126,6 +144,16 @@ export function EntryRow({ transaction, category, member, onEdit, onDelete }: En
                 className="flex items-center rounded-control border border-line bg-surface p-1.5 text-alert transition-colors hover:bg-alert/5">
                 
                     <Trash2Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+              }
+                {payrollAuto && onEditPaycheck &&
+              <button
+                type="button"
+                onClick={() => onEditPaycheck(transaction)}
+                className="flex items-center gap-1.5 rounded-control border border-line bg-surface px-2.5 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-canvas">
+                
+                    <PencilIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                    Edit this one
                   </button>
               }
                 {payrollAuto && onDelete &&

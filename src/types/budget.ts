@@ -42,6 +42,9 @@ export interface Transaction {
    *  on real rows, so it's what tells a payroll entry (deletable, one pay date
    *  at a time) apart from a recurring projection (no row to delete). */
   incomeDeductionId?: string;
+  /** This payroll entry was corrected by hand, so it no longer matches what
+   *  the deduction would generate. Carrying a later change forward skips it. */
+  overridden?: boolean;
 }
 
 export interface AuthUser {
